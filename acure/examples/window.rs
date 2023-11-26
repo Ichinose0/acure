@@ -1,5 +1,5 @@
 use acure::{gdi::GDISurface, Acure, Color, Command};
-use raw_window_handle::{HasRawWindowHandle, HasWindowHandle};
+use raw_window_handle::HasWindowHandle;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::EventLoop,

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["log","gdi"]
+default = ["log"]
 log = ["dep:log"]
 gdi = ["gdiplus-sys2","winapi"]
 
