@@ -14,11 +14,13 @@ pub type Context = Mutex<Vec<Command>>;
 
 #[derive(Clone,Copy,Debug)]
 pub enum Color {
-    ARGB(u8,u8,u8,u8)
+    ARGB(u8,u8,u8,u8),
 }
 
 pub enum Command {
-    Clear(Color)
+    Clear(Color),
+    // X,Y,Width,Height,Color
+    FillRectangle(u32,u32,u32,u32,Color)
 }
 
 pub struct Acure {

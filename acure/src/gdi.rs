@@ -1,6 +1,6 @@
 use std::ptr::null_mut;
 
-use gdiplus_sys2::{GdiplusStartupInput, GdiplusStartup, Status_Ok, HWND, GdipDeleteBrush, GpBrush, GdipFillRectangleI};
+use gdiplus_sys2::{GdiplusStartupInput, GdiplusStartup, Status_Ok, HWND, GdipDeleteBrush, GpBrush, GdipFillRectangleI, GdipDeleteGraphics};
 
 use crate::{Command, Color};
 use crate::surface::Surface;
@@ -72,7 +72,12 @@ impl Surface for GDISurface {
                             GdipDeleteBrush(brush as *mut GpBrush);
                     }
                 },
+                Command::FillRectangle(_, _, _, _, _) => todo!(),
             }
+        }
+        unsafe {
+            GdipDeleteGraphics(graphics);
+            winapi::um::winuser::EndPaint(self.hwnd as HWND,&ps);
         }
     }
 }
