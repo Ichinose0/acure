@@ -1,9 +1,44 @@
-use crate::Command;
+use std::ptr::null_mut;
+
+use gdiplus_sys2::{GdiplusStartupInput, GdiplusStartup, Status_Ok, HWND, GdipDeleteBrush, GpBrush, GdipFillRectangleI};
+
+use crate::{Command, Color};
 use crate::surface::Surface;
 
+const FALSE:i32 = 0;
+
 pub struct GDISurface {
+    hwnd: isize,
+    token: usize,
+    input: GdiplusStartupInput,
     width: u32,
     height: u32
+}
+
+impl GDISurface {
+    pub fn new(hwnd: isize) -> Self {
+        let mut token = 0;
+        let input = GdiplusStartupInput {
+            GdiplusVersion: 1,
+            DebugEventCallback: None,
+            SuppressBackgroundThread: FALSE,
+            SuppressExternalCodecs: FALSE,
+        };
+        unsafe {
+            let status = GdiplusStartup(&mut token, &input, null_mut());
+            println!("{}",status);
+            if status != Status_Ok {
+                panic!("Can't startup GDI+");
+            }
+        }
+        Self {
+            hwnd,
+            token,
+            input,
+            width: 1,
+            height: 1
+        }
+    }
 }
 
 impl Surface for GDISurface {
@@ -16,6 +51,38 @@ impl Surface for GDISurface {
     }
 
     fn command(&self,ctx: &[Command]) {
+        let mut ps: winapi::um::winuser::PAINTSTRUCT;
+        let hdc;
+        let mut graphics = null_mut();
+        unsafe {
+            ps = std::mem::zeroed();
+            hdc = winapi::um::winuser::BeginPaint(self.hwnd as HWND, &mut ps);
+            let status = gdiplus_sys2::GdipCreateFromHDC(hdc, &mut graphics);
+        }
+        for c in ctx {
+            match c {
+                Command::Clear(color) => {
+                    let mut brush = null_mut();
+                    unsafe {
+                        gdiplus_sys2::GdipCreateSolidFill(color_to_argb(*color),&mut brush);
+                        GdipFillRectangleI(graphics,brush as *mut GpBrush,ps.rcPaint.left as i32,
+                            ps.rcPaint.top as i32,
+                            (ps.rcPaint.right - ps.rcPaint.left) as i32,
+                            (ps.rcPaint.bottom - ps.rcPaint.top) as i32);
+                            GdipDeleteBrush(brush as *mut GpBrush);
+                    }
+                },
+            }
+        }
+    }
+}
 
+fn argb(alpha: u8, red: u8, green: u8, blue: u8) -> u32 {
+    ((alpha as u32) << 24) | ((red as u32) << 16) | ((green as u32) << 8) | (blue as u32)
+}
+
+fn color_to_argb(color: Color) -> u32 {
+    match color {
+        Color::ARGB(a, r, g, b) => argb(a,r,g,b),
     }
 }

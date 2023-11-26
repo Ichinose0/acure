@@ -1,6 +1,7 @@
 pub mod surface;
 
 #[cfg(target_os = "windows")]
+#[cfg(feature = "gdi")]
 pub mod gdi;
 #[cfg(target_os = "linux")]
 pub mod x11;
@@ -11,6 +12,7 @@ use surface::Surface;
 
 pub type Context = Mutex<Vec<Command>>;
 
+#[derive(Clone,Copy,Debug)]
 pub enum Color {
     ARGB(u8,u8,u8,u8)
 }
@@ -34,10 +36,10 @@ impl Acure {
         self.ctx.lock().unwrap().push(command);
     }
 
-    pub fn write<T>(surface: T)
+    pub fn write<T>(&self,surface: &T)
     where
         T: Surface
     {
-        
+        surface.command(&self.ctx.lock().unwrap());
     }
 }
