@@ -1,7 +1,7 @@
-use crate::{Context, Command};
+use crate::{Command, Context};
 
-pub trait Surface : Sized {
-    fn width(&mut self,width: u32);
-    fn height(&mut self,height: u32);
-    fn command(&self,ctx: &[Command]);
+pub trait Surface: Sized {
+    fn width(&mut self, width: u32);
+    fn height(&mut self, height: u32);
+    fn command(&self, ctx: &[Command]);
 }

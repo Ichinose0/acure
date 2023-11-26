@@ -1,18 +1,21 @@
 use std::ptr::null_mut;
 
-use gdiplus_sys2::{GdiplusStartupInput, GdiplusStartup, Status_Ok, HWND, GdipDeleteBrush, GpBrush, GdipFillRectangleI, GdipDeleteGraphics};
+use gdiplus_sys2::{
+    GdipDeleteBrush, GdipDeleteGraphics, GdipFillRectangleI, GdiplusStartup, GdiplusStartupInput,
+    GpBrush, Status_Ok, HWND,
+};
 
-use crate::{Command, Color};
 use crate::surface::Surface;
+use crate::{Color, Command};
 
-const FALSE:i32 = 0;
+const FALSE: i32 = 0;
 
 pub struct GDISurface {
     hwnd: isize,
     token: usize,
     input: GdiplusStartupInput,
     width: u32,
-    height: u32
+    height: u32,
 }
 
 impl GDISurface {
@@ -26,7 +29,7 @@ impl GDISurface {
         };
         unsafe {
             let status = GdiplusStartup(&mut token, &input, null_mut());
-            println!("{}",status);
+            println!("{}", status);
             if status != Status_Ok {
                 panic!("Can't startup GDI+");
             }
@@ -36,21 +39,21 @@ impl GDISurface {
             token,
             input,
             width: 1,
-            height: 1
+            height: 1,
         }
     }
 }
 
 impl Surface for GDISurface {
-    fn width(&mut self,width: u32) {
+    fn width(&mut self, width: u32) {
         self.width = width;
     }
 
-    fn height(&mut self,height: u32) {
+    fn height(&mut self, height: u32) {
         self.height = height;
     }
 
-    fn command(&self,ctx: &[Command]) {
+    fn command(&self, ctx: &[Command]) {
         let mut ps: winapi::um::winuser::PAINTSTRUCT;
         let hdc;
         let mut graphics = null_mut();
@@ -64,20 +67,38 @@ impl Surface for GDISurface {
                 Command::Clear(color) => {
                     let mut brush = null_mut();
                     unsafe {
-                        gdiplus_sys2::GdipCreateSolidFill(color_to_argb(*color),&mut brush);
-                        GdipFillRectangleI(graphics,brush as *mut GpBrush,ps.rcPaint.left as i32,
+                        gdiplus_sys2::GdipCreateSolidFill(color_to_argb(*color), &mut brush);
+                        GdipFillRectangleI(
+                            graphics,
+                            brush as *mut GpBrush,
+                            ps.rcPaint.left as i32,
                             ps.rcPaint.top as i32,
                             (ps.rcPaint.right - ps.rcPaint.left) as i32,
-                            (ps.rcPaint.bottom - ps.rcPaint.top) as i32);
-                            GdipDeleteBrush(brush as *mut GpBrush);
+                            (ps.rcPaint.bottom - ps.rcPaint.top) as i32,
+                        );
+                        GdipDeleteBrush(brush as *mut GpBrush);
                     }
-                },
-                Command::FillRectangle(_, _, _, _, _) => todo!(),
+                }
+                Command::FillRectangle(x, y, width, height, color) => {
+                    let mut brush = null_mut();
+                    unsafe {
+                        gdiplus_sys2::GdipCreateSolidFill(color_to_argb(*color), &mut brush);
+                        GdipFillRectangleI(
+                            graphics,
+                            brush as *mut GpBrush,
+                            *x as i32,
+                            *y as i32,
+                            *width as i32,
+                            *height as i32,
+                        );
+                        GdipDeleteBrush(brush as *mut GpBrush);
+                    }
+                }
             }
         }
         unsafe {
             GdipDeleteGraphics(graphics);
-            winapi::um::winuser::EndPaint(self.hwnd as HWND,&ps);
+            winapi::um::winuser::EndPaint(self.hwnd as HWND, &ps);
         }
     }
 }
@@ -88,6 +109,6 @@ fn argb(alpha: u8, red: u8, green: u8, blue: u8) -> u32 {
 
 fn color_to_argb(color: Color) -> u32 {
     match color {
-        Color::ARGB(a, r, g, b) => argb(a,r,g,b),
+        Color::ARGB(a, r, g, b) => argb(a, r, g, b),
     }
 }

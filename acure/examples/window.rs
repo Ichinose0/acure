@@ -1,4 +1,4 @@
-use acure::{Acure, gdi::GDISurface, Command, Color};
+use acure::{gdi::GDISurface, Acure, Color, Command};
 use raw_window_handle::{HasRawWindowHandle, HasWindowHandle};
 use winit::{
     event::{Event, WindowEvent},
@@ -19,27 +19,56 @@ fn main() -> Result<(), impl std::error::Error> {
     let surface;
     let handle = window.window_handle().unwrap().as_raw();
     match handle {
-        raw_window_handle::RawWindowHandle::UiKit(_) => panic!("This sample is available only Windows"),
-        raw_window_handle::RawWindowHandle::AppKit(_) => panic!("This sample is available only Windows"),
-        raw_window_handle::RawWindowHandle::Orbital(_) => panic!("This sample is available only Windows"),
-        raw_window_handle::RawWindowHandle::Xlib(_) => panic!("This sample is available only Windows"),
-        raw_window_handle::RawWindowHandle::Xcb(_) => panic!("This sample is available only Windows"),
-        raw_window_handle::RawWindowHandle::Wayland(_) => panic!("This sample is available only Windows"),
-        raw_window_handle::RawWindowHandle::Drm(_) => panic!("This sample is available only Windows"),
-        raw_window_handle::RawWindowHandle::Gbm(_) => panic!("This sample is available only Windows"),
+        raw_window_handle::RawWindowHandle::UiKit(_) => {
+            panic!("This sample is available only Windows")
+        }
+        raw_window_handle::RawWindowHandle::AppKit(_) => {
+            panic!("This sample is available only Windows")
+        }
+        raw_window_handle::RawWindowHandle::Orbital(_) => {
+            panic!("This sample is available only Windows")
+        }
+        raw_window_handle::RawWindowHandle::Xlib(_) => {
+            panic!("This sample is available only Windows")
+        }
+        raw_window_handle::RawWindowHandle::Xcb(_) => {
+            panic!("This sample is available only Windows")
+        }
+        raw_window_handle::RawWindowHandle::Wayland(_) => {
+            panic!("This sample is available only Windows")
+        }
+        raw_window_handle::RawWindowHandle::Drm(_) => {
+            panic!("This sample is available only Windows")
+        }
+        raw_window_handle::RawWindowHandle::Gbm(_) => {
+            panic!("This sample is available only Windows")
+        }
         raw_window_handle::RawWindowHandle::Win32(handle) => {
             surface = GDISurface::new(isize::from(handle.hwnd));
-        },
-        raw_window_handle::RawWindowHandle::WinRt(_) => panic!("This sample is available only Windows"),
-        raw_window_handle::RawWindowHandle::Web(_) => panic!("This sample is available only Windows"),
-        raw_window_handle::RawWindowHandle::WebCanvas(_) => panic!("This sample is available only Windows"),
-        raw_window_handle::RawWindowHandle::WebOffscreenCanvas(_) => panic!("This sample is available only Windows"),
-        raw_window_handle::RawWindowHandle::AndroidNdk(_) => panic!("This sample is available only Windows"),
-        raw_window_handle::RawWindowHandle::Haiku(_) => panic!("This sample is available only Windows"),
+        }
+        raw_window_handle::RawWindowHandle::WinRt(_) => {
+            panic!("This sample is available only Windows")
+        }
+        raw_window_handle::RawWindowHandle::Web(_) => {
+            panic!("This sample is available only Windows")
+        }
+        raw_window_handle::RawWindowHandle::WebCanvas(_) => {
+            panic!("This sample is available only Windows")
+        }
+        raw_window_handle::RawWindowHandle::WebOffscreenCanvas(_) => {
+            panic!("This sample is available only Windows")
+        }
+        raw_window_handle::RawWindowHandle::AndroidNdk(_) => {
+            panic!("This sample is available only Windows")
+        }
+        raw_window_handle::RawWindowHandle::Haiku(_) => {
+            panic!("This sample is available only Windows")
+        }
         _ => panic!("This sample is available only Windows"),
     }
 
-    acure.push(Command::Clear(Color::ARGB(255,100,50,0)));
+    acure.push(Command::Clear(Color::ARGB(255, 100, 50, 0)));
+    acure.push(Command::FillRectangle(10,10,50,50,Color::ARGB(255,0,100,0)));
 
     event_loop.run(move |event, elwt| {
         println!("{event:?}");
