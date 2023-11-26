@@ -21,6 +21,7 @@ pub enum Command {
     Clear(Color),
     // X,Y,Width,Height,Color
     FillRectangle(u32, u32, u32, u32, Color),
+    WriteString(u32,u32,u32,u32,Color,String)
 }
 
 pub struct Acure {

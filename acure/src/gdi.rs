@@ -1,9 +1,11 @@
+use std::ffi::c_void;
 use std::ptr::null_mut;
 
 use gdiplus_sys2::{
     GdipDeleteBrush, GdipDeleteGraphics, GdipFillRectangleI, GdiplusStartup, GdiplusStartupInput,
     GpBrush, Status_Ok, HWND,
 };
+use winapi::um::wingdi::{SetBkMode, TRANSPARENT, SetTextColor, CreateFontW, SelectObject, TextOutW, DeleteObject, RGB, SHIFTJIS_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, FF_MODERN, VARIABLE_PITCH, DEFAULT_QUALITY};
 
 use crate::surface::Surface;
 use crate::{Color, Command};
@@ -94,6 +96,23 @@ impl Surface for GDISurface {
                         GdipDeleteBrush(brush as *mut GpBrush);
                     }
                 }
+                Command::WriteString(x, y, width, height, color, string) => {
+                    let mut v: Vec<u16> = string.encode_utf16().collect();
+                    v.push(0);
+                    let f = "Elite";
+                    let mut font_name: Vec<u16> = f.encode_utf16().collect();
+                    font_name.push(0);
+                    unsafe {
+                        SetBkMode(hdc, TRANSPARENT as i32);
+                        SetTextColor(hdc, color_to_rgb(*color));
+
+                        let font = CreateFontW(*height as i32,0,0,0,0,0,0,0,SHIFTJIS_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,VARIABLE_PITCH | FF_MODERN, font_name.as_ptr());
+
+                        SelectObject(hdc, font as *mut c_void);
+                        TextOutW(hdc,*x as i32, *y as i32,v.as_ptr(),v.len() as i32);
+                        DeleteObject(font as *mut c_void);
+                    }
+                }
             }
         }
         unsafe {
@@ -110,5 +129,11 @@ fn argb(alpha: u8, red: u8, green: u8, blue: u8) -> u32 {
 fn color_to_argb(color: Color) -> u32 {
     match color {
         Color::ARGB(a, r, g, b) => argb(a, r, g, b),
+    }
+}
+
+fn color_to_rgb(color: Color) -> u32 {
+    match color {
+        Color::ARGB(a, r, g, b) => RGB(r, g, b),
     }
 }

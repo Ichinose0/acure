@@ -68,7 +68,7 @@ fn main() -> Result<(), impl std::error::Error> {
     }
 
     acure.push(Command::Clear(Color::ARGB(255, 100, 50, 0)));
-    acure.push(Command::FillRectangle(10,10,50,50,Color::ARGB(255,0,100,0)));
+    acure.push(Command::WriteString(10,10,50,50,Color::ARGB(255,0,100,0),String::from("Hello")));
 
     event_loop.run(move |event, elwt| {
         println!("{event:?}");
