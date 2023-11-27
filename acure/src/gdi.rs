@@ -1,9 +1,8 @@
-use std::ffi::c_void;
 use std::ptr::null_mut;
 
 use gdiplus_sys2::{
     GdipDeleteBrush, GdipDeleteGraphics, GdipFillRectangleI, GdiplusStartup, GdiplusStartupInput,
-    GpBrush, Status_Ok, HWND,
+    GpBrush, Status_Ok, HWND, c_void,
 };
 use winapi::shared::windef::{RECT, SIZE};
 use winapi::um::wingdi::{
