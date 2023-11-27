@@ -11,7 +11,7 @@ fn main() -> Result<(), impl std::error::Error> {
 
     let window = WindowBuilder::new()
         .with_title("A fantastic window!")
-        .with_inner_size(winit::dpi::LogicalSize::new(128.0, 128.0))
+        .with_inner_size(winit::dpi::LogicalSize::new(1280.0, 720.0))
         .build(&event_loop)
         .unwrap();
 
@@ -68,7 +68,7 @@ fn main() -> Result<(), impl std::error::Error> {
     }
 
     acure.push(Command::Clear(Color::ARGB(255, 100, 50, 0)));
-    acure.push(Command::WriteString(10,10,50,50,Color::ARGB(255,0,100,0),String::from("Hello")));
+    acure.push(Command::WriteString(10,10,50,50,Color::ARGB(255,0,100,0),String::from("こんちゃ、関根")));
 
     event_loop.run(move |event, elwt| {
         println!("{event:?}");

@@ -24,15 +24,37 @@ pub enum Command {
     WriteString(u32,u32,u32,u32,Color,String)
 }
 
+pub enum LayoutMode {
+    NoCare,
+    AdjustSize
+}
+
+pub enum AlignMode {
+    CenterAligned,
+    RightAligned,
+    LeftAligned,
+    Flex
+}
+
 pub struct Acure {
     ctx: Context,
+    align: Mutex<AlignMode>,
+    layout: Mutex<LayoutMode>,
+    thickness: u32,
 }
 
 impl Acure {
     pub fn new() -> Self {
         Self {
             ctx: Mutex::new(vec![]),
+            align: Mutex::new(AlignMode::Flex),
+            layout: Mutex::new(LayoutMode::NoCare),
+            thickness: 1,
         }
+    }
+
+    pub fn clear(&self) {
+        self.ctx.lock().unwrap().clear();
     }
 
     pub fn push(&self, command: Command) {
