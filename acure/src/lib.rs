@@ -21,23 +21,23 @@ pub enum Command {
     Clear(Color),
     // X,Y,Width,Height,Color
     FillRectangle(u32, u32, u32, u32, Color),
-    WriteString(u32,u32,u32,u32,Color,String)
+    WriteString(u32, u32, u32, u32, Color, String),
 }
 
-#[derive(Clone,Copy,Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum LayoutMode {
     NoCare,
-    AdjustSize
+    AdjustSize,
 }
 
-#[derive(Clone,Copy,Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum AlignMode {
     CenterAligned,
     RightAligned,
     LeftAligned,
     TopAligned,
     BottomAligned,
-    Flex
+    Flex,
 }
 
 pub struct Acure {
@@ -57,11 +57,11 @@ impl Acure {
         }
     }
 
-    pub fn set_align_mode(&self,mode: AlignMode) {
+    pub fn set_align_mode(&self, mode: AlignMode) {
         *self.align.lock().unwrap() = mode;
     }
 
-    pub fn set_layout_mode(&self,mode: LayoutMode) {
+    pub fn set_layout_mode(&self, mode: LayoutMode) {
         *self.layout.lock().unwrap() = mode;
     }
 
@@ -77,6 +77,10 @@ impl Acure {
     where
         T: Surface,
     {
-        surface.command(&self.ctx.lock().unwrap(),*self.align.lock().unwrap(),*self.layout.lock().unwrap());
+        surface.command(
+            &self.ctx.lock().unwrap(),
+            *self.align.lock().unwrap(),
+            *self.layout.lock().unwrap(),
+        );
     }
 }
