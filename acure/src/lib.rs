@@ -24,15 +24,19 @@ pub enum Command {
     WriteString(u32,u32,u32,u32,Color,String)
 }
 
+#[derive(Clone,Copy,Debug)]
 pub enum LayoutMode {
     NoCare,
     AdjustSize
 }
 
+#[derive(Clone,Copy,Debug)]
 pub enum AlignMode {
     CenterAligned,
     RightAligned,
     LeftAligned,
+    TopAligned,
+    BottomAligned,
     Flex
 }
 
@@ -53,6 +57,14 @@ impl Acure {
         }
     }
 
+    pub fn set_align_mode(&self,mode: AlignMode) {
+        *self.align.lock().unwrap() = mode;
+    }
+
+    pub fn set_layout_mode(&self,mode: LayoutMode) {
+        *self.layout.lock().unwrap() = mode;
+    }
+
     pub fn clear(&self) {
         self.ctx.lock().unwrap().clear();
     }
@@ -65,6 +77,6 @@ impl Acure {
     where
         T: Surface,
     {
-        surface.command(&self.ctx.lock().unwrap());
+        surface.command(&self.ctx.lock().unwrap(),*self.align.lock().unwrap(),*self.layout.lock().unwrap());
     }
 }

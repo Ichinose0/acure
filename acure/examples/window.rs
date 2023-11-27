@@ -1,4 +1,4 @@
-use acure::{gdi::GDISurface, Acure, Color, Command};
+use acure::{gdi::GDISurface, Acure, Color, Command, LayoutMode, AlignMode};
 use raw_window_handle::HasWindowHandle;
 use winit::{
     event::{Event, WindowEvent},
@@ -67,8 +67,12 @@ fn main() -> Result<(), impl std::error::Error> {
         _ => panic!("This sample is available only Windows"),
     }
 
-    acure.push(Command::Clear(Color::ARGB(255, 100, 50, 0)));
-    acure.push(Command::WriteString(10,10,50,50,Color::ARGB(255,0,100,0),String::from("こんちゃ、関根")));
+    acure.set_layout_mode(LayoutMode::AdjustSize);
+    acure.set_align_mode(AlignMode::CenterAligned);
+
+    acure.push(Command::Clear(Color::ARGB(255, 128, 128, 128)));
+    acure.push(Command::FillRectangle(20,20,300,300,Color::ARGB(255,0,255,0)));
+    acure.push(Command::WriteString(20,20,300,300,Color::ARGB(255,255,255,255),String::from("あ")));
 
     event_loop.run(move |event, elwt| {
         println!("{event:?}");

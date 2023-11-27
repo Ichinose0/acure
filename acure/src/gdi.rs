@@ -5,10 +5,12 @@ use gdiplus_sys2::{
     GdipDeleteBrush, GdipDeleteGraphics, GdipFillRectangleI, GdiplusStartup, GdiplusStartupInput,
     GpBrush, Status_Ok, HWND,
 };
-use winapi::um::wingdi::{SetBkMode, TRANSPARENT, SetTextColor, CreateFontW, SelectObject, TextOutW, DeleteObject, RGB, SHIFTJIS_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, FF_MODERN, VARIABLE_PITCH, DEFAULT_QUALITY};
+use winapi::shared::windef::{SIZE, RECT};
+use winapi::um::wingdi::{SetBkMode, TRANSPARENT, SetTextColor, CreateFontW, SelectObject, TextOutW, DeleteObject, RGB, SHIFTJIS_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, FF_MODERN, VARIABLE_PITCH, DEFAULT_QUALITY, GetTextExtentPoint32W};
+use winapi::um::winuser::{DrawTextW, DT_CALCRECT, DT_LEFT, DT_RIGHT, DT_CENTER, DT_BOTTOM, DT_TOP};
 
 use crate::surface::Surface;
-use crate::{Color, Command};
+use crate::{Color, Command,LayoutMode,AlignMode};
 
 const FALSE: i32 = 0;
 
@@ -55,7 +57,7 @@ impl Surface for GDISurface {
         self.height = height;
     }
 
-    fn command(&self, ctx: &[Command]) {
+    fn command(&self, ctx: &[Command],align: AlignMode,layout: LayoutMode) {
         let mut ps: winapi::um::winuser::PAINTSTRUCT;
         let hdc;
         let mut graphics = null_mut();
@@ -102,14 +104,40 @@ impl Surface for GDISurface {
                     let f = "Elite";
                     let mut font_name: Vec<u16> = f.encode_utf16().collect();
                     font_name.push(0);
+                    let style;
+                    match align {
+                        AlignMode::CenterAligned => {
+                            style = DT_CENTER;
+                        }
+                        AlignMode::RightAligned => {
+                            style = DT_RIGHT;
+                        }
+                        AlignMode::LeftAligned => {
+                            style = DT_LEFT;
+                        }
+                        AlignMode::TopAligned => {
+                            style = DT_TOP;
+                        }
+                        AlignMode::BottomAligned => {
+                            style = DT_BOTTOM;
+                        }
+                        AlignMode::Flex => {
+                            style = DT_LEFT;
+                        }
+                    }
                     unsafe {
                         SetBkMode(hdc, TRANSPARENT as i32);
                         SetTextColor(hdc, color_to_rgb(*color));
 
                         let font = CreateFontW(*height as i32,0,0,0,0,0,0,0,SHIFTJIS_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,VARIABLE_PITCH | FF_MODERN, font_name.as_ptr());
-
+                        let mut rect = RECT {
+                            left: *x as i32,
+                            top: *y as i32,
+                            right: (*x+(*width)) as i32,
+                            bottom: (*y+(*height)) as i32,
+                        };
                         SelectObject(hdc, font as *mut c_void);
-                        TextOutW(hdc,*x as i32, *y as i32,v.as_ptr(),v.len() as i32);
+                        DrawTextW(hdc, v.as_ptr(), v.len() as i32, &mut rect, style);
                         DeleteObject(font as *mut c_void);
                     }
                 }
