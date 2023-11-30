@@ -3,6 +3,9 @@ pub mod surface;
 #[cfg(target_os = "windows")]
 #[cfg(feature = "gdi")]
 pub mod gdi;
+#[cfg(target_os = "windows")]
+#[cfg(feature = "d2di")]
+pub mod d2di;
 #[cfg(target_os = "linux")]
 pub mod x11;
 
