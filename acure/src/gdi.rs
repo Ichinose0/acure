@@ -36,12 +36,13 @@ impl GDISurface {
             SuppressBackgroundThread: FALSE,
             SuppressExternalCodecs: FALSE,
         };
+        debug!("Input: {:?}",input);
         unsafe {
             let status = GdiplusStartup(&mut token, &input, null_mut());
-            println!("{}", status);
             if status != Status_Ok {
                 panic!("Can't startup GDI+");
             }
+            info!("Successful start-up of GDI+");
         }
         Self {
             hwnd,
@@ -71,7 +72,9 @@ impl Surface for GDISurface {
             hdc = winapi::um::winuser::BeginPaint(self.hwnd as HWND, &mut ps);
             let status = gdiplus_sys2::GdipCreateFromHDC(hdc, &mut graphics);
         }
+        
         for c in ctx {
+            debug!("Scheduled drawing commands: {:#?}",c);
             match c {
                 Command::Clear(color) => {
                     let mut brush = null_mut();
@@ -110,6 +113,7 @@ impl Surface for GDISurface {
                     let mut font_name: Vec<u16> = f.encode_utf16().collect();
                     font_name.push(0);
                     let style;
+                    debug!("Selected align is {:?}",align);
                     match align {
                         AlignMode::CenterAligned => {
                             style = DT_CENTER;

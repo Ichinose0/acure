@@ -17,6 +17,7 @@ pub enum Color {
     ARGB(u8, u8, u8, u8),
 }
 
+#[derive(Debug)]
 pub enum Command {
     Clear(Color),
     // X,Y,Width,Height,Color
