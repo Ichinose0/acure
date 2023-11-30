@@ -1,5 +1,29 @@
-[workspace]
-members = [
-    "acure",
-    "acure-dll"
+[package]
+name = "acure"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["log","gdi"]
+log = ["dep:log"]
+gdi = ["gdiplus-sys2","winapi"]
+
+[dependencies]
+raw-window-handle = "0.6.0"
+log = { version = "0.4.20", optional = true }
+gdiplus-sys2 = { version = "0.1.0", optional = true }
+
+[dependencies.winapi]
+version = "0.3.9"
+optional = true
+features = [
+    "winuser",
+    "windef",
+    "wingdi",
+    "ntdef",
 ]
+
+[dev-dependencies]
+winit = "0.29.3"
+
+
