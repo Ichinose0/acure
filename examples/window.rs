@@ -1,4 +1,5 @@
 use acure::{gdi::GDISurface, Acure, AlignMode, Color, Command, LayoutMode};
+use acure::d2d1::D2D1Surface;
 use raw_window_handle::HasWindowHandle;
 use winit::{
     event::{Event, WindowEvent},
@@ -44,7 +45,7 @@ fn main() -> Result<(), impl std::error::Error> {
             panic!("This sample is available only Windows")
         }
         raw_window_handle::RawWindowHandle::Win32(handle) => {
-            surface = GDISurface::new(isize::from(handle.hwnd));
+            surface = D2D1Surface::new(isize::from(handle.hwnd));
         }
         raw_window_handle::RawWindowHandle::WinRt(_) => {
             panic!("This sample is available only Windows")
