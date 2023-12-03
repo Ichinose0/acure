@@ -155,6 +155,7 @@ impl Surface for D2D1Surface {
                     let mut lang = "en-us".encode_utf16().collect::<Vec<u16>>();
                     lang.push(0);
                     let mut text_format = unsafe { std::mem::zeroed() };
+                    let font_size = (*height as f32)/2.0;
                     unsafe {
                         (*self.dwrite_factory).CreateTextFormat(
                             font_name.as_ptr(),
@@ -162,7 +163,7 @@ impl Surface for D2D1Surface {
                             DWRITE_FONT_WEIGHT_REGULAR,
                             DWRITE_FONT_STYLE_NORMAL,
                             DWRITE_FONT_STRETCH_NORMAL,
-                            36.0,
+                            font_size,
                             lang.as_ptr(),
                             &mut text_format,
                         );

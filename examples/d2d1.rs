@@ -76,6 +76,13 @@ fn main() -> Result<(), impl std::error::Error> {
             WindowEvent::CloseRequested => elwt.exit(),
             WindowEvent::RedrawRequested => {
                 acure.push(Command::Clear(Color::ARGB(255, 128, 128, 128)));
+                acure.push(Command::FillRectangle(
+                    10,
+                    10,
+                    240,
+                    40,
+                    Color::ARGB(255, 255, 0, 255),
+                ));
                 acure.push(Command::WriteString(
                     10,
                     10,
