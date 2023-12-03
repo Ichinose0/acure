@@ -7,10 +7,10 @@ use winapi::um::d2d1::{
     D2D1_FACTORY_TYPE_SINGLE_THREADED, D2D1_FEATURE_LEVEL, D2D1_FEATURE_LEVEL_DEFAULT,
     D2D1_HWND_RENDER_TARGET_PROPERTIES, D2D1_PRESENT_OPTIONS_NONE, D2D1_RECT_F,
     D2D1_RENDER_TARGET_PROPERTIES, D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1_RENDER_TARGET_USAGE,
-    D2D1_RENDER_TARGET_USAGE_NONE, D2D1_SIZE_U,
+    D2D1_RENDER_TARGET_USAGE_NONE, D2D1_SIZE_U, D2D1_DRAW_TEXT_OPTIONS_CLIP,
 };
-use winapi::um::dcommon::{D2D1_ALPHA_MODE, D2D1_ALPHA_MODE_IGNORE, D2D_MATRIX_3X2_F};
-use winapi::um::dwrite::{DWriteCreateFactory, IDWriteFactory, DWRITE_FACTORY_TYPE_SHARED};
+use winapi::um::dcommon::{D2D1_ALPHA_MODE, D2D1_ALPHA_MODE_IGNORE, D2D_MATRIX_3X2_F, DWRITE_MEASURING_MODE_NATURAL};
+use winapi::um::dwrite::{DWriteCreateFactory, IDWriteFactory, DWRITE_FACTORY_TYPE_SHARED, DWRITE_FONT_STRETCH_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_WEIGHT_REGULAR, DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_PARAGRAPH_ALIGNMENT_CENTER};
 use winapi::um::winuser::GetClientRect;
 use winapi::Interface;
 
@@ -140,7 +140,36 @@ impl Surface for D2D1Surface {
                         SafeRelease!(brush);
                     }
                 }
-                Command::WriteString(x, y, width, height, color, string) => {}
+                Command::WriteString(x, y, width, height, color, string) => {
+                    let color = create_d3dcolorvalue(*color);
+                    let mut string = string.encode_utf16().collect::<Vec<u16>>();
+                    string.push(0);
+                    let mut font_name = "Yu gothic".encode_utf16().collect::<Vec<u16>>();
+                    font_name.push(0);
+                    let mut lang = "en-us".encode_utf16().collect::<Vec<u16>>();
+                    lang.push(0);
+                    let mut text_format = unsafe { std::mem::zeroed() };
+                    unsafe {
+                        (*self.dwrite_factory).CreateTextFormat(font_name.as_ptr(),null_mut(),DWRITE_FONT_WEIGHT_REGULAR,DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,36.0,lang.as_ptr(),&mut text_format);
+                        (*text_format).SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
+                        (*text_format).SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+                    }
+                    let mut brush = unsafe { std::mem::zeroed() };
+                    unsafe { (*render_target).CreateSolidColorBrush(&color, null(), &mut brush) };
+
+                    let layout_rect = D2D1_RECT_F {
+                        left: *x as f32,
+                        top: *y as f32,
+                        right: (*x + (*width)) as f32,
+                        bottom: (*y + (*height)) as f32,
+                    };
+                    
+                    unsafe {
+                        (*render_target).DrawText(string.as_ptr(), string.len() as u32, text_format, &layout_rect, brush as *mut  ID2D1Brush, D2D1_DRAW_TEXT_OPTIONS_CLIP, DWRITE_MEASURING_MODE_NATURAL);
+                        SafeRelease!(brush);
+                        SafeRelease!(text_format);
+                    }
+                }
             }
         }
         let mut tag1 = 0;
