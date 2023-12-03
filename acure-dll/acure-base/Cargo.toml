@@ -10,4 +10,4 @@ name = "acure"
 crate-type = ["cdylib"]
 
 [dependencies]
-acure = { path = "../../", version = "0.1.0" }
+acure = { path = "../../", version = "0.0.1" }

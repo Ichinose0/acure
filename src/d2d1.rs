@@ -2,7 +2,7 @@ use winapi::shared::d3d9types::D3DCOLORVALUE;
 use winapi::shared::dxgiformat::DXGI_FORMAT_B8G8R8A8_UNORM;
 use winapi::shared::windef::{HWND, RECT};
 use winapi::shared::winerror::D2DERR_RECREATE_TARGET;
-use winapi::um::d2d1::{D2D1CreateFactory,ID2D1Factory,D2D1_FACTORY_TYPE_SINGLE_THREADED, D2D1_RENDER_TARGET_PROPERTIES, D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1_RENDER_TARGET_USAGE, D2D1_FEATURE_LEVEL, D2D1_FEATURE_LEVEL_DEFAULT, D2D1_RENDER_TARGET_USAGE_NONE, D2D1_HWND_RENDER_TARGET_PROPERTIES, D2D1_SIZE_U, D2D1_PRESENT_OPTIONS_NONE};
+use winapi::um::d2d1::{D2D1CreateFactory,ID2D1Factory,D2D1_FACTORY_TYPE_SINGLE_THREADED, D2D1_RENDER_TARGET_PROPERTIES, D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1_RENDER_TARGET_USAGE, D2D1_FEATURE_LEVEL, D2D1_FEATURE_LEVEL_DEFAULT, D2D1_RENDER_TARGET_USAGE_NONE, D2D1_HWND_RENDER_TARGET_PROPERTIES, D2D1_SIZE_U, D2D1_PRESENT_OPTIONS_NONE, D2D1_RECT_F, ID2D1Brush, D2D1_BRUSH_PROPERTIES};
 use winapi::um::dcommon::{D2D1_ALPHA_MODE, D2D1_ALPHA_MODE_IGNORE, D2D_MATRIX_3X2_F};
 use winapi::um::dwrite::{DWriteCreateFactory,DWRITE_FACTORY_TYPE_SHARED, IDWriteFactory};
 use winapi::Interface;
@@ -116,10 +116,28 @@ impl Surface for D2D1Surface {
                     }
                 }
                 Command::FillRectangle(x, y, width, height, color) => {
+                    let size = unsafe { (*render_target).GetSize() };
+                    let rect = D2D1_RECT_F {
+                        left: size.width/2.0 - 50.0,
+                        top: size.height/2.0 - 50.0,
+                        right: size.height/2.0 + 50.0,
+                        bottom: size.width/2.0 + 50.0,
 
+                    };
+                    let color = D3DCOLORVALUE {
+                        r: 1.0,
+                        g: 1.0,
+                        b: 1.0,
+                        a: 1.0,
+                    };
+                    
+                    let mut brush = unsafe { std::mem::zeroed() };
+                    unsafe { (*render_target).CreateSolidColorBrush(&color, null(), &mut brush) };
+                    unsafe {
+                        (*render_target).FillRectangle(&rect, brush as *mut ID2D1Brush);
+                    }
                 }
                 Command::WriteString(x, y, width, height, color, string) => {
-
                 }
             }
         }
@@ -127,8 +145,7 @@ impl Surface for D2D1Surface {
         let mut tag2 = 0;
         unsafe {
             (*render_target).EndDraw(&mut tag1, &mut tag2);
-            (*render_target).Release();
-            
+            SafeRelease!(render_target);
         }
     }
 }
