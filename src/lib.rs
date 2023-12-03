@@ -1,9 +1,5 @@
 pub mod surface;
 
-#[deprecated(since = "0.0.1", note = "GDISurface is being discontinued due to performance issues")]
-#[cfg(target_os = "windows")]
-#[cfg(feature = "gdi")]
-pub mod gdi;
 #[cfg(target_os = "windows")]
 #[cfg(feature = "d2d1")]
 pub mod d2d1;
@@ -21,6 +17,7 @@ pub enum Color {
     ARGB(u8, u8, u8, u8),
 }
 
+#[derive(Debug)]
 pub enum Command {
     Clear(Color),
     // X,Y,Width,Height,Color
@@ -86,5 +83,9 @@ impl Acure {
             *self.align.lock().unwrap(),
             *self.layout.lock().unwrap(),
         );
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.ctx.lock().unwrap().is_empty()
     }
 }

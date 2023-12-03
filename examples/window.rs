@@ -1,5 +1,5 @@
-use acure::{gdi::GDISurface, Acure, AlignMode, Color, Command, LayoutMode};
 use acure::d2d1::D2D1Surface;
+use acure::{Acure, AlignMode, Color, Command, LayoutMode};
 use raw_window_handle::HasWindowHandle;
 use winit::{
     event::{Event, WindowEvent},
@@ -71,31 +71,23 @@ fn main() -> Result<(), impl std::error::Error> {
     acure.set_layout_mode(LayoutMode::AdjustSize);
     acure.set_align_mode(AlignMode::CenterAligned);
 
-    acure.push(Command::Clear(Color::ARGB(255, 128, 128, 128)));
-    acure.push(Command::FillRectangle(
-        20,
-        20,
-        300,
-        300,
-        Color::ARGB(255, 0, 255, 0),
-    ));
-    acure.push(Command::WriteString(
-        20,
-        20,
-        300,
-        300,
-        Color::ARGB(255, 255, 255, 255),
-        String::from("あ"),
-    ));
-
     event_loop.run(move |event, elwt| {
-        println!("{event:?}");
 
         match event {
             Event::WindowEvent { event, window_id } if window_id == window.id() => match event {
                 WindowEvent::CloseRequested => elwt.exit(),
                 WindowEvent::RedrawRequested => {
+                    acure.push(Command::Clear(Color::ARGB(255, 128, 128, 128)));
+                    acure.push(Command::FillRectangle(
+                        20,
+                        20,
+                        300,
+                        300,
+                        Color::ARGB(255, 0, 255, 0),
+                    ));
+                    acure.push(Command::Clear(Color::ARGB(255,255, 128, 128)));
                     acure.write(&surface);
+                    acure.clear();
                     window.pre_present_notify();
                 }
                 _ => (),

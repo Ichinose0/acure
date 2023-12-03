@@ -2,13 +2,19 @@ use winapi::shared::d3d9types::D3DCOLORVALUE;
 use winapi::shared::dxgiformat::DXGI_FORMAT_B8G8R8A8_UNORM;
 use winapi::shared::windef::{HWND, RECT};
 use winapi::shared::winerror::D2DERR_RECREATE_TARGET;
-use winapi::um::d2d1::{D2D1CreateFactory,ID2D1Factory,D2D1_FACTORY_TYPE_SINGLE_THREADED, D2D1_RENDER_TARGET_PROPERTIES, D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1_RENDER_TARGET_USAGE, D2D1_FEATURE_LEVEL, D2D1_FEATURE_LEVEL_DEFAULT, D2D1_RENDER_TARGET_USAGE_NONE, D2D1_HWND_RENDER_TARGET_PROPERTIES, D2D1_SIZE_U, D2D1_PRESENT_OPTIONS_NONE, D2D1_RECT_F, ID2D1Brush, D2D1_BRUSH_PROPERTIES};
+use winapi::um::d2d1::{
+    D2D1CreateFactory, ID2D1Brush, ID2D1Factory, D2D1_BRUSH_PROPERTIES,
+    D2D1_FACTORY_TYPE_SINGLE_THREADED, D2D1_FEATURE_LEVEL, D2D1_FEATURE_LEVEL_DEFAULT,
+    D2D1_HWND_RENDER_TARGET_PROPERTIES, D2D1_PRESENT_OPTIONS_NONE, D2D1_RECT_F,
+    D2D1_RENDER_TARGET_PROPERTIES, D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1_RENDER_TARGET_USAGE,
+    D2D1_RENDER_TARGET_USAGE_NONE, D2D1_SIZE_U,
+};
 use winapi::um::dcommon::{D2D1_ALPHA_MODE, D2D1_ALPHA_MODE_IGNORE, D2D_MATRIX_3X2_F};
-use winapi::um::dwrite::{DWriteCreateFactory,DWRITE_FACTORY_TYPE_SHARED, IDWriteFactory};
-use winapi::Interface;
+use winapi::um::dwrite::{DWriteCreateFactory, IDWriteFactory, DWRITE_FACTORY_TYPE_SHARED};
 use winapi::um::winuser::GetClientRect;
+use winapi::Interface;
 
-use std::ptr::{null,null_mut};
+use std::ptr::{null, null_mut};
 
 use crate::surface::Surface;
 use crate::{AlignMode, Color, Command, LayoutMode};
@@ -36,11 +42,16 @@ impl D2D1Surface {
         let mut dwrite_factory = unsafe { std::mem::zeroed() };
         let riid = ID2D1Factory::uuidof();
         unsafe {
-            D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,&riid,null(),&mut factory);
+            D2D1CreateFactory(
+                D2D1_FACTORY_TYPE_SINGLE_THREADED,
+                &riid,
+                null(),
+                &mut factory,
+            );
             let riid = IDWriteFactory::uuidof();
-            DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,&riid,&mut dwrite_factory);
+            DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, &riid, &mut dwrite_factory);
         }
-        
+
         Self {
             hwnd,
             factory: factory as *mut ID2D1Factory,
@@ -66,7 +77,10 @@ impl Surface for D2D1Surface {
         unsafe {
             let render_props = D2D1_RENDER_TARGET_PROPERTIES {
                 _type: D2D1_RENDER_TARGET_TYPE_DEFAULT,
-                pixelFormat: winapi::um::dcommon::D2D1_PIXEL_FORMAT { format: DXGI_FORMAT_B8G8R8A8_UNORM, alphaMode: D2D1_ALPHA_MODE_IGNORE },
+                pixelFormat: winapi::um::dcommon::D2D1_PIXEL_FORMAT {
+                    format: DXGI_FORMAT_B8G8R8A8_UNORM,
+                    alphaMode: D2D1_ALPHA_MODE_IGNORE,
+                },
                 dpiX: 0.0,
                 dpiY: 0.0,
                 usage: D2D1_RENDER_TARGET_USAGE_NONE,
@@ -89,15 +103,15 @@ impl Surface for D2D1Surface {
                 presentOptions: D2D1_PRESENT_OPTIONS_NONE,
             };
             render_target = std::mem::zeroed();
-            hr = (*self.factory).CreateHwndRenderTarget(&render_props, &hwnd_props, &mut render_target);
+            hr = (*self.factory).CreateHwndRenderTarget(
+                &render_props,
+                &hwnd_props,
+                &mut render_target,
+            );
         }
         unsafe {
             let matrix = D2D_MATRIX_3X2_F {
-                matrix: [
-                    [0.0,0.0],
-                    [0.0,0.0],
-                    [0.0,0.0]
-                ],
+                matrix: [[1.0, 0.0], [0.0, 1.0], [0.0, 0.0]],
             };
             (*render_target).BeginDraw();
             (*render_target).SetTransform(&matrix);
@@ -105,40 +119,28 @@ impl Surface for D2D1Surface {
         for c in ctx {
             match c {
                 Command::Clear(color) => {
-                    let color = D3DCOLORVALUE {
-                        r: 0.0,
-                        g: 1.0,
-                        b: 0.5,
-                        a: 1.0,
-                    };
+                    let color = create_d3dcolorvalue(*color);
                     unsafe {
                         (*render_target).Clear(&color);
                     }
                 }
                 Command::FillRectangle(x, y, width, height, color) => {
-                    let size = unsafe { (*render_target).GetSize() };
-                    let rect = D2D1_RECT_F {
-                        left: size.width/2.0 - 50.0,
-                        top: size.height/2.0 - 50.0,
-                        right: size.height/2.0 + 50.0,
-                        bottom: size.width/2.0 + 50.0,
+                    let color = create_d3dcolorvalue(*color);
 
+                    let rect = D2D1_RECT_F {
+                        left: *x as f32,
+                        top: *y as f32,
+                        right: (*x + (*width)) as f32,
+                        bottom: (*y + (*height)) as f32,
                     };
-                    let color = D3DCOLORVALUE {
-                        r: 1.0,
-                        g: 1.0,
-                        b: 1.0,
-                        a: 1.0,
-                    };
-                    
                     let mut brush = unsafe { std::mem::zeroed() };
                     unsafe { (*render_target).CreateSolidColorBrush(&color, null(), &mut brush) };
                     unsafe {
                         (*render_target).FillRectangle(&rect, brush as *mut ID2D1Brush);
+                        SafeRelease!(brush);
                     }
                 }
-                Command::WriteString(x, y, width, height, color, string) => {
-                }
+                Command::WriteString(x, y, width, height, color, string) => {}
             }
         }
         let mut tag1 = 0;
@@ -150,3 +152,13 @@ impl Surface for D2D1Surface {
     }
 }
 
+fn create_d3dcolorvalue(color: Color) -> D3DCOLORVALUE {
+    match color {
+        Color::ARGB(a, r, g, b) => D3DCOLORVALUE {
+            r: (r as f32) / 255.0,
+            g: (g as f32) / 255.0,
+            b: (b as f32) / 255.0,
+            a: (a as f32) / 255.0,
+        },
+    }
+}
