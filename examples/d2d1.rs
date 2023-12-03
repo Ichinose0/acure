@@ -71,25 +71,29 @@ fn main() -> Result<(), impl std::error::Error> {
     acure.set_layout_mode(LayoutMode::AdjustSize);
     acure.set_align_mode(AlignMode::CenterAligned);
 
-    event_loop.run(move |event, elwt| {
-
-        match event {
-            Event::WindowEvent { event, window_id } if window_id == window.id() => match event {
-                WindowEvent::CloseRequested => elwt.exit(),
-                WindowEvent::RedrawRequested => {
-                    acure.push(Command::Clear(Color::ARGB(255, 128, 128, 128)));
-                    acure.push(Command::WriteString(10, 10, 240, 40, Color::ARGB(255,255,255,255), String::from("Direct2D")));
-                    acure.write(&surface);
-                    acure.clear();
-                    window.pre_present_notify();
-                }
-                _ => (),
-            },
-            Event::AboutToWait => {
-                window.request_redraw();
+    event_loop.run(move |event, elwt| match event {
+        Event::WindowEvent { event, window_id } if window_id == window.id() => match event {
+            WindowEvent::CloseRequested => elwt.exit(),
+            WindowEvent::RedrawRequested => {
+                acure.push(Command::Clear(Color::ARGB(255, 128, 128, 128)));
+                acure.push(Command::WriteString(
+                    10,
+                    10,
+                    240,
+                    40,
+                    Color::ARGB(255, 255, 255, 255),
+                    String::from("Direct2D"),
+                ));
+                acure.write(&surface);
+                acure.clear();
+                window.pre_present_notify();
             }
-
             _ => (),
+        },
+        Event::AboutToWait => {
+            window.request_redraw();
         }
+
+        _ => (),
     })
 }

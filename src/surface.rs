@@ -1,4 +1,4 @@
-use crate::{AlignMode, Command, Context, LayoutMode};
+use crate::{AlignMode, Command, LayoutMode};
 
 pub trait Surface: Sized {
     fn width(&mut self, width: u32);
