@@ -20,8 +20,8 @@ pub enum Color {
 #[derive(Debug)]
 pub enum Command {
     Clear(Color),
-    // X,Y,Width,Height,Color
-    FillRectangle(u32, u32, u32, u32, Color),
+    // X,Y,Width,Height,Radius,Color
+    FillRectangle(u32, u32, u32, u32, f64, Color),
     WriteString(u32, u32, u32, u32, Color, String),
 }
 
@@ -46,7 +46,6 @@ pub struct Acure {
     align: Mutex<AlignMode>,
     layout: Mutex<LayoutMode>,
     thickness: u32,
-    border_radius: Mutex<f64>
 }
 
 impl Acure {
@@ -56,7 +55,6 @@ impl Acure {
             align: Mutex::new(AlignMode::Flex),
             layout: Mutex::new(LayoutMode::NoCare),
             thickness: 1,
-            border_radius: Mutex::new(0.0)
         }
     }
 
@@ -66,10 +64,6 @@ impl Acure {
 
     pub fn set_layout_mode(&self, mode: LayoutMode) {
         *self.layout.lock().unwrap() = mode;
-    }
-
-    pub fn set_border_radius(&self, radius: f64) {
-        *self.border_radius.lock().unwrap() = radius;
     }
 
     pub fn clear(&self) {
@@ -88,7 +82,6 @@ impl Acure {
             &self.ctx.lock().unwrap(),
             *self.align.lock().unwrap(),
             *self.layout.lock().unwrap(),
-            *self.border_radius.lock().unwrap()
         );
     }
 

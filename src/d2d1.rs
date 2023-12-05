@@ -77,7 +77,7 @@ impl Surface for D2D1Surface {
         self.height = height;
     }
 
-    fn command(&self, ctx: &[Command], align: AlignMode, layout: LayoutMode,radius: f64) {
+    fn command(&self, ctx: &[Command], align: AlignMode, layout: LayoutMode) {
         let mut hr = 0;
         let mut render_target;
         unsafe {
@@ -130,7 +130,7 @@ impl Surface for D2D1Surface {
                         (*render_target).Clear(&color);
                     }
                 }
-                Command::FillRectangle(x, y, width, height, color) => {
+                Command::FillRectangle(x, y, width, height, radius,color) => {
                     let color = create_d3dcolorvalue(*color);
                     let mut brush = unsafe { std::mem::zeroed() };
                     unsafe { (*render_target).CreateSolidColorBrush(&color, null(), &mut brush) };
@@ -141,7 +141,7 @@ impl Surface for D2D1Surface {
                         right: (*x + (*width)) as f32,
                         bottom: (*y + (*height)) as f32,
                     };
-                    if radius == 0.0 {
+                    if *radius == 0.0 {
                         unsafe {
                             (*render_target).FillRectangle(&rect, brush as *mut ID2D1Brush);
                             
@@ -149,8 +149,8 @@ impl Surface for D2D1Surface {
                     } else {
                         let rounded_rect = D2D1_ROUNDED_RECT {
                             rect: rect,
-                            radiusX: radius as f32,
-                            radiusY: radius as f32,
+                            radiusX: *radius as f32,
+                            radiusY: *radius as f32,
                         };
                         unsafe {
                             (*render_target).FillRoundedRectangle(&rounded_rect, brush as *mut ID2D1Brush);
