@@ -4,7 +4,7 @@ version = "0.0.1"
 edition = "2021"
 
 [features]
-default = ["log"]
+default = ["log","d2d1"]
 log = ["dep:log"]
 d2d1 = ["winapi/winuser","winapi/windef","winapi/ntdef","winapi/wingdi","winapi/d2d1","winapi/dwrite"]
 

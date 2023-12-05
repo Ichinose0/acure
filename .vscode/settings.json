@@ -1,6 +1,7 @@
 {
     "rust-analyzer.linkedProjects": [
         ".\\acure-dll\\acure-base\\Cargo.toml",
-        ".\\acure-dll\\acure-base\\Cargo.toml"
+        ".\\acure-dll\\acure-base\\Cargo.toml",
+        ".\\Cargo.toml"
     ]
 }

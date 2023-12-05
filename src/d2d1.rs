@@ -7,7 +7,7 @@ use winapi::um::d2d1::{
     D2D1_DRAW_TEXT_OPTIONS_CLIP, D2D1_FACTORY_TYPE_SINGLE_THREADED, D2D1_FEATURE_LEVEL,
     D2D1_FEATURE_LEVEL_DEFAULT, D2D1_HWND_RENDER_TARGET_PROPERTIES, D2D1_PRESENT_OPTIONS_NONE,
     D2D1_RECT_F, D2D1_RENDER_TARGET_PROPERTIES, D2D1_RENDER_TARGET_TYPE_DEFAULT,
-    D2D1_RENDER_TARGET_USAGE, D2D1_RENDER_TARGET_USAGE_NONE, D2D1_SIZE_U,
+    D2D1_RENDER_TARGET_USAGE, D2D1_RENDER_TARGET_USAGE_NONE, D2D1_SIZE_U, D2D1_ROUNDED_RECT,
 };
 use winapi::um::dcommon::{
     D2D1_ALPHA_MODE, D2D1_ALPHA_MODE_IGNORE, D2D_MATRIX_3X2_F, DWRITE_MEASURING_MODE_NATURAL,
@@ -77,7 +77,7 @@ impl Surface for D2D1Surface {
         self.height = height;
     }
 
-    fn command(&self, ctx: &[Command], align: AlignMode, layout: LayoutMode) {
+    fn command(&self, ctx: &[Command], align: AlignMode, layout: LayoutMode,radius: f64) {
         let mut hr = 0;
         let mut render_target;
         unsafe {
@@ -132,6 +132,8 @@ impl Surface for D2D1Surface {
                 }
                 Command::FillRectangle(x, y, width, height, color) => {
                     let color = create_d3dcolorvalue(*color);
+                    let mut brush = unsafe { std::mem::zeroed() };
+                    unsafe { (*render_target).CreateSolidColorBrush(&color, null(), &mut brush) };
 
                     let rect = D2D1_RECT_F {
                         left: *x as f32,
@@ -139,12 +141,22 @@ impl Surface for D2D1Surface {
                         right: (*x + (*width)) as f32,
                         bottom: (*y + (*height)) as f32,
                     };
-                    let mut brush = unsafe { std::mem::zeroed() };
-                    unsafe { (*render_target).CreateSolidColorBrush(&color, null(), &mut brush) };
-                    unsafe {
-                        (*render_target).FillRectangle(&rect, brush as *mut ID2D1Brush);
-                        SafeRelease!(brush);
+                    if radius == 0.0 {
+                        unsafe {
+                            (*render_target).FillRectangle(&rect, brush as *mut ID2D1Brush);
+                            
+                        }
+                    } else {
+                        let rounded_rect = D2D1_ROUNDED_RECT {
+                            rect: rect,
+                            radiusX: radius as f32,
+                            radiusY: radius as f32,
+                        };
+                        unsafe {
+                            (*render_target).FillRoundedRectangle(&rounded_rect, brush as *mut ID2D1Brush);
+                        }
                     }
+                    SafeRelease!(brush);
                 }
                 Command::WriteString(x, y, width, height, color, string) => {
                     let color = create_d3dcolorvalue(*color);

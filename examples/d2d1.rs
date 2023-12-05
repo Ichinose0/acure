@@ -70,6 +70,7 @@ fn main() -> Result<(), impl std::error::Error> {
 
     acure.set_layout_mode(LayoutMode::AdjustSize);
     acure.set_align_mode(AlignMode::CenterAligned);
+    acure.set_border_radius(9.0);
 
     event_loop.run(move |event, elwt| match event {
         Event::WindowEvent { event, window_id } if window_id == window.id() => match event {
