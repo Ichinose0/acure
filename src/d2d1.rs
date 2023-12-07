@@ -17,7 +17,7 @@ use winapi::um::dwrite::{
     DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_WEIGHT_REGULAR, DWRITE_PARAGRAPH_ALIGNMENT_CENTER,
     DWRITE_TEXT_ALIGNMENT_CENTER,
 };
-use winapi::um::winuser::GetClientRect;
+use winapi::um::winuser::{GetClientRect, GetDpiForWindow};
 use winapi::Interface;
 
 use std::ptr::{null, null_mut};
@@ -115,10 +115,13 @@ impl Surface for D2D1Surface {
                 &mut render_target,
             );
         }
+
         unsafe {
             let matrix = D2D_MATRIX_3X2_F {
                 matrix: [[1.0, 0.0], [0.0, 1.0], [0.0, 0.0]],
             };
+            let dpi = GetDpiForWindow(self.hwnd as HWND);
+            (*render_target).SetDpi(dpi as f32,dpi as f32);
             (*render_target).BeginDraw();
             (*render_target).SetTransform(&matrix);
         }
@@ -141,6 +144,7 @@ impl Surface for D2D1Surface {
                         right: (*x + (*width)) as f32,
                         bottom: (*y + (*height)) as f32,
                     };
+                    println!("Width:{}Height:{}",rect.right-rect.left,rect.bottom-rect.top);
                     if *radius == 0.0 {
                         unsafe {
                             (*render_target).FillRectangle(&rect, brush as *mut ID2D1Brush);
