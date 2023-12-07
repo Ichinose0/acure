@@ -144,7 +144,6 @@ impl Surface for D2D1Surface {
                         right: (*x + (*width)) as f32,
                         bottom: (*y + (*height)) as f32,
                     };
-                    println!("Width:{}Height:{}",rect.right-rect.left,rect.bottom-rect.top);
                     if *radius == 0.0 {
                         unsafe {
                             (*render_target).FillRectangle(&rect, brush as *mut ID2D1Brush);
