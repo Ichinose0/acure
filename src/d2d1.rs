@@ -7,7 +7,7 @@ use winapi::um::d2d1::{
     D2D1_DRAW_TEXT_OPTIONS_CLIP, D2D1_FACTORY_TYPE_SINGLE_THREADED, D2D1_FEATURE_LEVEL,
     D2D1_FEATURE_LEVEL_DEFAULT, D2D1_HWND_RENDER_TARGET_PROPERTIES, D2D1_PRESENT_OPTIONS_NONE,
     D2D1_RECT_F, D2D1_RENDER_TARGET_PROPERTIES, D2D1_RENDER_TARGET_TYPE_DEFAULT,
-    D2D1_RENDER_TARGET_USAGE, D2D1_RENDER_TARGET_USAGE_NONE, D2D1_SIZE_U, D2D1_ROUNDED_RECT,
+    D2D1_RENDER_TARGET_USAGE, D2D1_RENDER_TARGET_USAGE_NONE, D2D1_ROUNDED_RECT, D2D1_SIZE_U,
 };
 use winapi::um::dcommon::{
     D2D1_ALPHA_MODE, D2D1_ALPHA_MODE_IGNORE, D2D_MATRIX_3X2_F, DWRITE_MEASURING_MODE_NATURAL,
@@ -87,8 +87,8 @@ impl Surface for D2D1Surface {
                     format: DXGI_FORMAT_B8G8R8A8_UNORM,
                     alphaMode: D2D1_ALPHA_MODE_IGNORE,
                 },
-                dpiX: 0.0,
-                dpiY: 0.0,
+                dpiX: 96.0,
+                dpiY: 96.0,
                 usage: D2D1_RENDER_TARGET_USAGE_NONE,
                 minLevel: D2D1_FEATURE_LEVEL_DEFAULT,
             };
@@ -121,7 +121,7 @@ impl Surface for D2D1Surface {
                 matrix: [[1.0, 0.0], [0.0, 1.0], [0.0, 0.0]],
             };
             let dpi = GetDpiForWindow(self.hwnd as HWND);
-            (*render_target).SetDpi(dpi as f32,dpi as f32);
+            (*render_target).SetDpi(dpi as f32, dpi as f32);
             (*render_target).BeginDraw();
             (*render_target).SetTransform(&matrix);
         }
@@ -133,7 +133,7 @@ impl Surface for D2D1Surface {
                         (*render_target).Clear(&color);
                     }
                 }
-                Command::FillRectangle(x, y, width, height, radius,color) => {
+                Command::FillRectangle(x, y, width, height, radius, color) => {
                     let color = create_d3dcolorvalue(*color);
                     let mut brush = unsafe { std::mem::zeroed() };
                     unsafe { (*render_target).CreateSolidColorBrush(&color, null(), &mut brush) };
@@ -147,7 +147,6 @@ impl Surface for D2D1Surface {
                     if *radius == 0.0 {
                         unsafe {
                             (*render_target).FillRectangle(&rect, brush as *mut ID2D1Brush);
-                            
                         }
                     } else {
                         let rounded_rect = D2D1_ROUNDED_RECT {
@@ -156,7 +155,8 @@ impl Surface for D2D1Surface {
                             radiusY: *radius as f32,
                         };
                         unsafe {
-                            (*render_target).FillRoundedRectangle(&rounded_rect, brush as *mut ID2D1Brush);
+                            (*render_target)
+                                .FillRoundedRectangle(&rounded_rect, brush as *mut ID2D1Brush);
                         }
                     }
                     SafeRelease!(brush);
@@ -170,7 +170,7 @@ impl Surface for D2D1Surface {
                     let mut lang = "en-us".encode_utf16().collect::<Vec<u16>>();
                     lang.push(0);
                     let mut text_format = unsafe { std::mem::zeroed() };
-                    let font_size = (*height as f32)/2.0;
+                    let font_size = (*height as f32) / 2.0;
                     unsafe {
                         (*self.dwrite_factory).CreateTextFormat(
                             font_name.as_ptr(),
