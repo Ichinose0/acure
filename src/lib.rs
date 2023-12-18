@@ -10,19 +10,17 @@ use std::sync::Mutex;
 
 use surface::Surface;
 
-pub type Context = Mutex<Vec<Command>>;
-
 #[derive(Clone, Copy, Debug)]
 pub enum Color {
     ARGB(u8, u8, u8, u8),
 }
 
-#[derive(Debug)]
-pub enum Command {
+#[derive(Clone,Copy,Debug)]
+pub enum Command<'a> {
     Clear(Color),
     // X,Y,Width,Height,Radius,Color
     FillRectangle(u32, u32, u32, u32, f64, Color),
-    WriteString(u32, u32, u32, u32, Color, String),
+    WriteString(u32, u32, u32, u32, Color, &'a str),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -41,14 +39,14 @@ pub enum AlignMode {
     Flex,
 }
 
-pub struct Acure {
-    ctx: Context,
+pub struct Acure<'a> {
+    ctx: Mutex<Vec<Command<'a>>>,
     align: Mutex<AlignMode>,
     layout: Mutex<LayoutMode>,
     thickness: u32,
 }
 
-impl Acure {
+impl<'a> Acure<'a> {
     pub fn new() -> Self {
         Self {
             ctx: Mutex::new(vec![]),
@@ -70,7 +68,7 @@ impl Acure {
         self.ctx.lock().unwrap().clear();
     }
 
-    pub fn push(&self, command: Command) {
+    pub fn push(&self, command: Command<'a>) {
         self.ctx.lock().unwrap().push(command);
     }
 

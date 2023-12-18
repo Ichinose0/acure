@@ -90,7 +90,7 @@ fn main() -> Result<(), impl std::error::Error> {
                     240,
                     40,
                     Color::ARGB(255, 255, 255, 255),
-                    String::from("Direct2D"),
+                    "Direct2D",
                 ));
                 acure.write(&surface);
                 acure.clear();
