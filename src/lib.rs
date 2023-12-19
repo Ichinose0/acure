@@ -15,12 +15,11 @@ pub enum Color {
     ARGB(u8, u8, u8, u8),
 }
 
-#[derive(Clone,Copy,Debug)]
-pub enum Command<'a> {
-    Clear(Color),
+#[derive(Clone,Debug)]
+pub enum Command {
     // X,Y,Width,Height,Radius,Color
     FillRectangle(u32, u32, u32, u32, f64, Color),
-    WriteString(u32, u32, u32, u32, Color, &'a str),
+    WriteString(u32, u32, u32, u32, Color, String),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -39,43 +38,50 @@ pub enum AlignMode {
     Flex,
 }
 
-pub struct Acure<'a> {
-    ctx: Mutex<Vec<Command<'a>>>,
-    align: Mutex<AlignMode>,
-    layout: Mutex<LayoutMode>,
+pub struct Acure {
+    buffer: Vec<Command>>,
+    bgr: Color,
+    align: AlignMode,
+    layout: LayoutMode,
     thickness: u32,
 }
 
 impl<'a> Acure<'a> {
     pub fn new() -> Self {
         Self {
-            ctx: Mutex::new(vec![]),
-            align: Mutex::new(AlignMode::Flex),
-            layout: Mutex::new(LayoutMode::NoCare),
+            buffer: vec![],
+            color: Color::ARGB(0,0,0,0),
+            align: AlignMode::Flex,
+            layout: LayoutMode::NoCare,
             thickness: 1,
         }
     }
 
-    pub fn set_align_mode(&self, mode: AlignMode) {
-        *self.align.lock().unwrap() = mode;
+    pub fn set_align_mode(&mut self, mode: AlignMode) {
+        self.align = mode;
     }
 
-    pub fn set_layout_mode(&self, mode: LayoutMode) {
-        *self.layout.lock().unwrap() = mode;
+    pub fn set_layout_mode(&mut self, mode: LayoutMode) {
+        self.layout = mode;
     }
 
-    pub fn clear(&self) {
-        self.ctx.lock().unwrap().clear();
+    pub fn clear(&mut self) {
+        self.buffer.clear();
     }
 
-    pub fn push(&self, command: Command<'a>) {
-        self.ctx.lock().unwrap().push(command);
+    pub fn push(&mut self, command: Command) {
+        self.buffer.push(command);
     }
 
-    pub fn write<T>(&self, surface: &T)
+    pub fn write<T>(&self, surface: &mut T)
     where
         T: Surface,
     {
+        let mut bgr = self.bgr;
+        let mut cmds = vec![];
+        for c in self.buffer {
+
+        }
         surface.command(
             &self.ctx.lock().unwrap(),
             *self.align.lock().unwrap(),
@@ -84,6 +90,6 @@ impl<'a> Acure<'a> {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.ctx.lock().unwrap().is_empty()
+        self.buffer.is_empty()
     }
 }
