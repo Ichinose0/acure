@@ -38,19 +38,23 @@ pub enum AlignMode {
     Flex,
 }
 
+pub struct AcureBuilder {
+    
+}
+
 pub struct Acure {
-    buffer: Vec<Command>>,
+    buffer: Vec<Command>,
     bgr: Color,
     align: AlignMode,
     layout: LayoutMode,
     thickness: u32,
 }
 
-impl<'a> Acure<'a> {
+impl Acure {
     pub fn new() -> Self {
         Self {
             buffer: vec![],
-            color: Color::ARGB(0,0,0,0),
+            bgr: Color::ARGB(0,0,0,0),
             align: AlignMode::Flex,
             layout: LayoutMode::NoCare,
             thickness: 1,
@@ -77,15 +81,11 @@ impl<'a> Acure<'a> {
     where
         T: Surface,
     {
-        let mut bgr = self.bgr;
-        let mut cmds = vec![];
-        for c in self.buffer {
-
-        }
+        surface.clear(self.bgr);
         surface.command(
-            &self.ctx.lock().unwrap(),
-            *self.align.lock().unwrap(),
-            *self.layout.lock().unwrap(),
+            &self.buffer,
+            self.align,
+            self.layout,
         );
     }
 

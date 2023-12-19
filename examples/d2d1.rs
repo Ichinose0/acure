@@ -16,8 +16,8 @@ fn main() -> Result<(), impl std::error::Error> {
         .build(&event_loop)
         .unwrap();
 
-    let acure = Acure::new();
-    let surface;
+    let mut acure = Acure::new();
+    let mut surface;
     let handle = window.window_handle().unwrap().as_raw();
     match handle {
         raw_window_handle::RawWindowHandle::UiKit(_) => {
@@ -67,7 +67,7 @@ fn main() -> Result<(), impl std::error::Error> {
         }
         _ => panic!("This sample is available only Windows"),
     }
-
+    
     acure.set_layout_mode(LayoutMode::AdjustSize);
     acure.set_align_mode(AlignMode::CenterAligned);
 
@@ -75,7 +75,6 @@ fn main() -> Result<(), impl std::error::Error> {
         Event::WindowEvent { event, window_id } if window_id == window.id() => match event {
             WindowEvent::CloseRequested => elwt.exit(),
             WindowEvent::RedrawRequested => {
-                acure.push(Command::Clear(Color::ARGB(255, 128, 128, 128)));
                 acure.push(Command::FillRectangle(
                     10,
                     10,
@@ -90,9 +89,9 @@ fn main() -> Result<(), impl std::error::Error> {
                     240,
                     40,
                     Color::ARGB(255, 255, 255, 255),
-                    "Direct2D",
+                    String::from("Direct2D"),
                 ));
-                acure.write(&surface);
+                acure.write(&mut surface);
                 acure.clear();
                 window.pre_present_notify();
             }

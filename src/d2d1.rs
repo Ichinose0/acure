@@ -69,14 +69,10 @@ impl D2D1Surface {
 }
 
 impl Surface for D2D1Surface {
-    fn width(&mut self, width: u32) {
-        self.width = width;
+    fn resize(&mut self,width: u32,height: u32) {
+        
     }
-
-    fn height(&mut self, height: u32) {
-        self.height = height;
-    }
-
+    
     fn command(&self, ctx: &[Command], align: AlignMode, layout: LayoutMode) {
         let mut hr = 0;
         let mut render_target;
@@ -127,12 +123,6 @@ impl Surface for D2D1Surface {
         }
         for c in ctx {
             match c {
-                Command::Clear(color) => {
-                    let color = create_d3dcolorvalue(*color);
-                    unsafe {
-                        (*render_target).Clear(&color);
-                    }
-                }
                 Command::FillRectangle(x, y, width, height, radius, color) => {
                     let color = create_d3dcolorvalue(*color);
                     let mut brush = unsafe { std::mem::zeroed() };
@@ -217,6 +207,10 @@ impl Surface for D2D1Surface {
             (*render_target).EndDraw(&mut tag1, &mut tag2);
             SafeRelease!(render_target);
         }
+    }
+
+    fn clear(&self,color: Color) {
+
     }
 }
 
