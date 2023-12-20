@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate log;
+
 pub mod surface;
 
 #[cfg(target_os = "windows")]

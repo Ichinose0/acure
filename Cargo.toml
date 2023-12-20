@@ -4,13 +4,12 @@ version = "0.0.1"
 edition = "2021"
 
 [features]
-default = ["log","d2d1"]
-log = ["dep:log"]
+default = ["d2d1"]
 d2d1 = ["winapi/winuser","winapi/windef","winapi/ntdef","winapi/wingdi","winapi/d2d1","winapi/dwrite"]
 
 [dependencies]
 raw-window-handle = "0.6.0"
-log = { version = "0.4.20", optional = true }
+log = "0.4"
 
 [dependencies.winapi]
 version = "0.3.9"

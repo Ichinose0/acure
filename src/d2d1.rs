@@ -7,7 +7,7 @@ use winapi::um::d2d1::{
     D2D1_DRAW_TEXT_OPTIONS_CLIP, D2D1_FACTORY_TYPE_SINGLE_THREADED, D2D1_FEATURE_LEVEL,
     D2D1_FEATURE_LEVEL_DEFAULT, D2D1_HWND_RENDER_TARGET_PROPERTIES, D2D1_PRESENT_OPTIONS_NONE,
     D2D1_RECT_F, D2D1_RENDER_TARGET_PROPERTIES, D2D1_RENDER_TARGET_TYPE_DEFAULT,
-    D2D1_RENDER_TARGET_USAGE, D2D1_RENDER_TARGET_USAGE_NONE, D2D1_ROUNDED_RECT, D2D1_SIZE_U,
+    D2D1_RENDER_TARGET_USAGE, D2D1_RENDER_TARGET_USAGE_NONE, D2D1_ROUNDED_RECT, D2D1_SIZE_U, ID2D1HwndRenderTarget,
 };
 use winapi::um::dcommon::{
     D2D1_ALPHA_MODE, D2D1_ALPHA_MODE_IGNORE, D2D_MATRIX_3X2_F, DWRITE_MEASURING_MODE_NATURAL,
@@ -38,12 +38,13 @@ pub struct D2D1Surface {
     hwnd: isize,
     factory: *mut ID2D1Factory,
     dwrite_factory: *mut IDWriteFactory,
+    render_target: Option<*mut ID2D1HwndRenderTarget>,
     width: u32,
     height: u32,
 }
 
 impl D2D1Surface {
-    pub fn new(hwnd: isize) -> Self {
+    pub fn new(hwnd: isize,width: u32,height: u32) -> Self {
         let mut factory = unsafe { std::mem::zeroed() };
         let mut dwrite_factory = unsafe { std::mem::zeroed() };
         let riid = ID2D1Factory::uuidof();
@@ -58,22 +59,8 @@ impl D2D1Surface {
             DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, &riid, &mut dwrite_factory);
         }
 
-        Self {
-            hwnd,
-            factory: factory as *mut ID2D1Factory,
-            dwrite_factory: dwrite_factory as *mut IDWriteFactory,
-            width: 1,
-            height: 1,
-        }
-    }
-}
+        let mut factory = factory as *mut ID2D1Factory;
 
-impl Surface for D2D1Surface {
-    fn resize(&mut self,width: u32,height: u32) {
-        
-    }
-    
-    fn command(&self, ctx: &[Command], align: AlignMode, layout: LayoutMode) {
         let mut hr = 0;
         let mut render_target;
         unsafe {
@@ -88,16 +75,57 @@ impl Surface for D2D1Surface {
                 usage: D2D1_RENDER_TARGET_USAGE_NONE,
                 minLevel: D2D1_FEATURE_LEVEL_DEFAULT,
             };
-            let mut rect = RECT {
-                left: 0,
-                top: 0,
-                right: 0,
-                bottom: 0,
-            };
-            GetClientRect(isize::from(self.hwnd) as HWND, &mut rect);
             let size = D2D1_SIZE_U {
-                width: rect.right as u32,
-                height: rect.bottom as u32,
+                width,
+                height,
+            };
+            let hwnd_props = D2D1_HWND_RENDER_TARGET_PROPERTIES {
+                hwnd: isize::from(hwnd) as HWND,
+                pixelSize: size,
+                presentOptions: D2D1_PRESENT_OPTIONS_NONE,
+            };
+            render_target = std::mem::zeroed();
+            hr = (*factory).CreateHwndRenderTarget(
+                &render_props,
+                &hwnd_props,
+                &mut render_target,
+            );
+        }
+
+        Self {
+            hwnd,
+            factory: factory as *mut ID2D1Factory,
+            dwrite_factory: dwrite_factory as *mut IDWriteFactory,
+            render_target: Some(render_target),
+            width,
+            height,
+        }
+    }
+
+    pub fn resize(&mut self,width :u32,height :u32) {
+        self.surface_resize(width, height);
+    }
+}
+
+impl Surface for D2D1Surface {
+    fn surface_resize(&mut self,width: u32,height: u32) {
+        let mut hr = 0;
+        let mut render_target;
+        unsafe {
+            let render_props = D2D1_RENDER_TARGET_PROPERTIES {
+                _type: D2D1_RENDER_TARGET_TYPE_DEFAULT,
+                pixelFormat: winapi::um::dcommon::D2D1_PIXEL_FORMAT {
+                    format: DXGI_FORMAT_B8G8R8A8_UNORM,
+                    alphaMode: D2D1_ALPHA_MODE_IGNORE,
+                },
+                dpiX: 96.0,
+                dpiY: 96.0,
+                usage: D2D1_RENDER_TARGET_USAGE_NONE,
+                minLevel: D2D1_FEATURE_LEVEL_DEFAULT,
+            };
+            let size = D2D1_SIZE_U {
+                width,
+                height,
             };
             let hwnd_props = D2D1_HWND_RENDER_TARGET_PROPERTIES {
                 hwnd: isize::from(self.hwnd) as HWND,
@@ -111,6 +139,24 @@ impl Surface for D2D1Surface {
                 &mut render_target,
             );
         }
+
+        match self.render_target {
+            Some(r) => SafeRelease!(r),
+            None => {}
+        };
+
+        self.render_target = Some(render_target);
+    }
+    
+    fn command(&self, ctx: &[Command], align: AlignMode, layout: LayoutMode) {
+        let mut hr = 0;
+
+        let mut render_target = match self.render_target {
+            Some(r) => r,
+            None => {
+                panic!("Render target not found.");
+            }
+        };
 
         unsafe {
             let matrix = D2D_MATRIX_3X2_F {
@@ -205,12 +251,20 @@ impl Surface for D2D1Surface {
         let mut tag2 = 0;
         unsafe {
             (*render_target).EndDraw(&mut tag1, &mut tag2);
-            SafeRelease!(render_target);
         }
     }
 
     fn clear(&self,color: Color) {
 
+    }
+}
+
+impl Drop for D2D1Surface {
+    fn drop(&mut self) {
+        match self.render_target {
+            Some(r) => SafeRelease!(r),
+            None => {}
+        };
     }
 }
 
