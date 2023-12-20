@@ -103,12 +103,8 @@ impl Acure {
         surface.begin();
     }
 
-    pub fn push(&mut self, command: Command) -> AeResult<()> {
-        if self.state == ContextState::Begin {
-            self.buffer.push(command);
-            return Ok(());
-        }
-        Err(AcureResult::UnauthorizedOperation)
+    pub fn push(&mut self, command: Command) {
+        self.buffer.push(command);
     }
 
     pub fn write<T>(&mut self, surface: &mut T) -> AeResult<()>
