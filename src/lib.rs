@@ -77,6 +77,10 @@ impl Acure {
         }
     }
 
+    pub fn set_background_color(&mut self, color: Color) {
+        self.bgr = color;
+    }
+
     pub fn set_align_mode(&mut self, mode: AlignMode) {
         self.align = mode;
     }

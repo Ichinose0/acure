@@ -264,7 +264,20 @@ impl Surface for D2D1Surface {
         }
     }
 
-    fn clear(&self, color: Color) {}
+    fn clear(&self, color: Color) {
+        let mut render_target = match self.render_target {
+            Some(r) => r,
+            None => {
+                panic!("Render target not found.");
+            }
+        };
+
+        let color = create_d3dcolorvalue(color);
+
+        unsafe {
+            (*render_target).Clear(&color);
+        }
+    }
 }
 
 impl Drop for D2D1Surface {
