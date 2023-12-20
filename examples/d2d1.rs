@@ -46,7 +46,7 @@ fn main() -> Result<(), impl std::error::Error> {
         }
         raw_window_handle::RawWindowHandle::Win32(handle) => {
             let size = window.inner_size();
-            surface = D2D1Surface::new(isize::from(handle.hwnd),size.width,size.height);
+            surface = D2D1Surface::new(isize::from(handle.hwnd), size.width, size.height);
         }
         raw_window_handle::RawWindowHandle::WinRt(_) => {
             panic!("This sample is available only Windows")
@@ -75,10 +75,11 @@ fn main() -> Result<(), impl std::error::Error> {
     event_loop.run(move |event, elwt| match event {
         Event::WindowEvent { event, window_id } if window_id == window.id() => match event {
             WindowEvent::Resized(size) => {
-                surface.resize(size.width,size.height);
+                surface.resize(size.width, size.height);
             }
             WindowEvent::CloseRequested => elwt.exit(),
             WindowEvent::RedrawRequested => {
+                acure.begin(&mut surface);
                 acure.push(Command::FillRectangle(
                     10,
                     10,
@@ -86,7 +87,7 @@ fn main() -> Result<(), impl std::error::Error> {
                     40,
                     10.0,
                     Color::ARGB(255, 255, 0, 255),
-                ));
+                )).unwrap();
                 acure.push(Command::WriteString(
                     10,
                     10,
@@ -94,7 +95,7 @@ fn main() -> Result<(), impl std::error::Error> {
                     40,
                     Color::ARGB(255, 255, 255, 255),
                     String::from("Direct2D"),
-                ));
+                )).unwrap();
                 acure.write(&mut surface);
                 acure.clear();
                 window.pre_present_notify();

@@ -13,12 +13,19 @@ use std::sync::Mutex;
 
 use surface::Surface;
 
+pub type AeResult<T> = Result<T, AcureResult>;
+
+#[derive(Clone, Copy, Debug)]
+pub enum AcureResult {
+    UnauthorizedOperation,
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum Color {
     ARGB(u8, u8, u8, u8),
 }
 
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub enum Command {
     // X,Y,Width,Height,Radius,Color
     FillRectangle(u32, u32, u32, u32, f64, Color),
@@ -41,15 +48,20 @@ pub enum AlignMode {
     Flex,
 }
 
-pub struct AcureBuilder {
-    
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ContextState {
+    Begin,
+    End,
 }
+
+pub struct AcureBuilder {}
 
 pub struct Acure {
     buffer: Vec<Command>,
     bgr: Color,
     align: AlignMode,
     layout: LayoutMode,
+    state: ContextState,
     thickness: u32,
 }
 
@@ -57,9 +69,10 @@ impl Acure {
     pub fn new() -> Self {
         Self {
             buffer: vec![],
-            bgr: Color::ARGB(0,0,0,0),
+            bgr: Color::ARGB(0, 0, 0, 0),
             align: AlignMode::Flex,
             layout: LayoutMode::NoCare,
+            state: ContextState::End,
             thickness: 1,
         }
     }
@@ -73,23 +86,40 @@ impl Acure {
     }
 
     pub fn clear(&mut self) {
-        self.buffer.clear();
+        if !self.buffer.is_empty() {
+            self.buffer.clear();
+        }
     }
 
-    pub fn push(&mut self, command: Command) {
-        self.buffer.push(command);
+    pub fn begin<T>(&mut self,surface: &mut T) 
+    where
+        T: Surface
+    {
+        self.state = ContextState::Begin;
+        surface.begin();
     }
 
-    pub fn write<T>(&self, surface: &mut T)
+    pub fn push(&mut self, command: Command) -> AeResult<()> {
+        if self.state == ContextState::Begin {
+            self.buffer.push(command);
+            return Ok(());
+        }
+        Err(AcureResult::UnauthorizedOperation)
+    }
+
+    pub fn write<T>(&mut self, surface: &mut T) -> AeResult<()>
     where
         T: Surface,
     {
-        surface.clear(self.bgr);
-        surface.command(
-            &self.buffer,
-            self.align,
-            self.layout,
-        );
+        if self.state == ContextState::Begin {
+            surface.clear(self.bgr);
+            surface.command(&self.buffer, self.align, self.layout);
+            surface.end();
+            self.state = ContextState::End;
+            return Ok(());
+        }
+
+        return Err(AcureResult::UnauthorizedOperation);
     }
 
     pub fn is_empty(&self) -> bool {
