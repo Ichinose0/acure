@@ -6,7 +6,6 @@ use winit::{
     event_loop::EventLoop,
     window::WindowBuilder,
 };
-
 fn main() -> Result<(), impl std::error::Error> {
     let event_loop = EventLoop::new().unwrap();
 
@@ -88,7 +87,7 @@ fn main() -> Result<(), impl std::error::Error> {
                     40,
                     10.0,
                     Color::ARGB(255, 255, 0, 255),
-                )).unwrap();
+                ));
                 acure.push(Command::WriteString(
                     10,
                     10,
@@ -96,7 +95,7 @@ fn main() -> Result<(), impl std::error::Error> {
                     40,
                     Color::ARGB(255, 255, 255, 255),
                     String::from("Direct2D"),
-                )).unwrap();
+                ));
                 acure.write(&mut surface);
                 acure.clear();
                 window.pre_present_notify();
