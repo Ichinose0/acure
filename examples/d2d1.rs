@@ -45,7 +45,7 @@ fn main() -> Result<(), impl std::error::Error> {
         }
         raw_window_handle::RawWindowHandle::Win32(handle) => {
             let size = window.inner_size();
-            surface = D2D1Surface::new(isize::from(handle.hwnd), size.width, size.height);
+            surface = D2D1Surface::new(isize::from(handle.hwnd));
         }
         raw_window_handle::RawWindowHandle::WinRt(_) => {
             panic!("This sample is available only Windows")
@@ -70,12 +70,12 @@ fn main() -> Result<(), impl std::error::Error> {
 
     acure.set_layout_mode(LayoutMode::AdjustSize);
     acure.set_align_mode(AlignMode::CenterAligned);
-    acure.set_background_color(Color::ARGB(255,240,240,240));
+    acure.set_background_color(Color::ARGB(255, 0, 240, 240));
 
     event_loop.run(move |event, elwt| match event {
         Event::WindowEvent { event, window_id } if window_id == window.id() => match event {
             WindowEvent::Resized(size) => {
-                surface.resize(size.width, size.height);
+                //surface.resize();
             }
             WindowEvent::CloseRequested => elwt.exit(),
             WindowEvent::RedrawRequested => {

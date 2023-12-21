@@ -13,7 +13,6 @@ use std::sync::Mutex;
 
 use surface::Surface;
 
-
 pub type AeResult<T> = Result<T, AcureResult>;
 
 #[derive(Clone, Copy, Debug)]
@@ -96,9 +95,9 @@ impl Acure {
         }
     }
 
-    pub fn begin<T>(&mut self,surface: &mut T) 
+    pub fn begin<T>(&mut self, surface: &mut T)
     where
-        T: Surface
+        T: Surface,
     {
         self.state = ContextState::Begin;
         surface.begin();

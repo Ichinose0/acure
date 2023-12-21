@@ -1,3 +1,4 @@
+use std::ptr::{null, null_mut};
 use windows::{
     core::*, Foundation::Numerics::*, Win32::Foundation::*, Win32::Graphics::Direct2D::Common::*,
     Win32::Graphics::Direct2D::*, Win32::Graphics::Direct3D::*, Win32::Graphics::Direct3D11::*,
@@ -6,36 +7,140 @@ use windows::{
     Win32::System::SystemInformation::GetLocalTime, Win32::UI::Animation::*,
     Win32::UI::WindowsAndMessaging::*,
 };
-use std::ptr::{null, null_mut};
 
 use crate::surface::Surface;
 use crate::{AlignMode, Color, Command, LayoutMode};
 
-#[macro_use]
-macro_rules! SafeRelease {
-    ($p:expr) => {
-        unsafe {
-            (*$p).Release();
+impl Surface for D2D1Surface {
+    fn surface_resize(&mut self, width: u32, height: u32) {
+        self.resize_swapchain_bitmap().unwrap();
+    }
+
+    fn begin(&mut self) {
+        if self.target.is_none() {
+            let device = create_device().unwrap();
+            let target = create_render_target(&self.factory, &device).unwrap();
+            unsafe { target.SetDpi(self.dpi, self.dpi) };
+
+            let swapchain = create_swapchain(&device, self.handle).unwrap();
+            create_swapchain_bitmap(&swapchain, &target).unwrap();
+
+            self.brush = create_brush(&target).ok();
+            self.target = Some(target);
+            self.swapchain = Some(swapchain);
+            self.create_device_size_resources().unwrap();
         }
-    };
+
+        let target = self.target.as_ref().unwrap();
+        unsafe { target.BeginDraw() };
+    }
+
+    fn end(&mut self) {
+        let target = self.target.as_ref().unwrap();
+        unsafe {
+            target.EndDraw(None, None).unwrap();
+        }
+
+        if let Err(error) = self.present(1, 0) {
+            if error.code() == DXGI_STATUS_OCCLUDED {
+                self.occlusion = unsafe {
+                    self.dxfactory
+                        .RegisterOcclusionStatusWindow(self.handle, WM_USER).unwrap()
+                };
+                self.visible = false;
+            } else {
+                self.release_device();
+            }
+        }
+    }
+
+    fn command(&self, ctx: &[Command], align: AlignMode, layout: LayoutMode) {
+        let target = self.target.as_ref().unwrap();
+        let clock = self.clock.as_ref().unwrap();
+        let shadow = self.shadow.as_ref().unwrap();
+
+        unsafe {
+            self.manager.Update(get_time(self.frequency).unwrap(), None).unwrap();
+
+            let previous = target.GetTarget().unwrap();
+            target.SetTarget(clock);
+            target.Clear(None);
+            self.draw_clock().unwrap();
+            target.SetTarget(&previous);
+            target.SetTransform(&Matrix3x2::translation(5.0, 5.0));
+
+            target.DrawImage(
+                &shadow.GetOutput().unwrap(),
+                None,
+                None,
+                D2D1_INTERPOLATION_MODE_LINEAR,
+                D2D1_COMPOSITE_MODE_SOURCE_OVER,
+            );
+
+            target.SetTransform(&Matrix3x2::identity());
+
+            target.DrawImage(
+                clock,
+                None,
+                None,
+                D2D1_INTERPOLATION_MODE_LINEAR,
+                D2D1_COMPOSITE_MODE_SOURCE_OVER,
+            );
+        }
+    }
+
+    fn clear(&self, color: Color) {
+        let target = self.target.as_ref().unwrap();
+        let color = self.d2d1_color(color);
+        unsafe { target.Clear(Some(&color)) };
+    }
 }
 
 pub struct D2D1Surface {
-    hwnd: isize,
+    handle: HWND,
     factory: ID2D1Factory1,
     dxfactory: IDXGIFactory2,
     style: ID2D1StrokeStyle,
     manager: IUIAnimationManager,
+    variable: IUIAnimationVariable,
 
-    target: ID2D1DeviceContext,
-    swapchain: IDXGISwapChain1,
+    target: Option<ID2D1DeviceContext>,
+    swapchain: Option<IDXGISwapChain1>,
+    brush: Option<ID2D1SolidColorBrush>,
+    shadow: Option<ID2D1Effect>,
+    clock: Option<ID2D1Bitmap1>,
     dpi: f32,
-    width: u32,
-    height: u32,
+    visible: bool,
+    occlusion: u32,
+    frequency: i64,
+    angles: Angles,
+}
+
+#[derive(Default)]
+struct Angles {
+    second: f32,
+    minute: f32,
+    hour: f32,
+}
+
+impl Angles {
+    fn now() -> Self {
+        let time = unsafe { GetLocalTime() };
+
+        let second = (time.wSecond as f32 + time.wMilliseconds as f32 / 1000.0) * 6.0;
+        let minute = time.wMinute as f32 * 6.0 + second / 60.0;
+        let hour = (time.wHour % 12) as f32 * 30.0 + minute / 12.0;
+
+        Self {
+            second,
+            minute,
+            hour,
+        }
+    }
 }
 
 impl D2D1Surface {
-    pub fn new(hwnd: isize, width: u32, height: u32) -> Self {
+    pub fn new(hwnd: isize) -> Self {
         let factory = create_factory().unwrap();
         let dxfactory: IDXGIFactory2 = unsafe { CreateDXGIFactory1().unwrap() };
         let style = create_style(&factory).unwrap();
@@ -47,155 +152,369 @@ impl D2D1Surface {
         let mut dpiy = 0.0;
         unsafe { factory.GetDesktopDpi(&mut dpi, &mut dpiy) };
 
-        let device = create_device().unwrap();
-            let target = create_render_target(&factory, &device).unwrap();
-            unsafe { target.SetDpi(dpi, dpi) };
+        let mut frequency = 0;
+        unsafe { QueryPerformanceFrequency(&mut frequency).unwrap() };
 
-            let swapchain = create_swapchain(&device, HWND(hwnd)).unwrap();
-            create_swapchain_bitmap(&swapchain, &target).unwrap();
+        let variable = unsafe {
+            let variable = manager.CreateAnimationVariable(0.0).unwrap();
 
-            let brush = create_brush(&target).ok();
-            let target = target;
-            let swapchain = swapchain;
+            manager.ScheduleTransition(&variable, &transition, get_time(frequency).unwrap()).unwrap();
+
+            variable
+        };
 
         Self {
-            hwnd,
+            handle: HWND(hwnd),
             factory,
             dxfactory,
             style,
             manager,
-            target,
-            swapchain,
+            variable,
+            target: None,
+            swapchain: None,
+            brush: None,
+            shadow: None,
+            clock: None,
             dpi,
-            width,
-            height,
+            visible: false,
+            occlusion: 0,
+            frequency,
+            angles: Angles::now(),
         }
     }
 
-    pub fn resize(&mut self, width: u32, height: u32) {
-        self.surface_resize(width, height);
+    fn d2d1_color(&self,color: Color) -> D2D1_COLOR_F {
+        match color {
+            Color::ARGB(a,r,g,b) => D2D1_COLOR_F { r: r as f32, g: g as f32, b: b as f32, a: a as f32}
+        }
     }
-}
 
-impl Surface for D2D1Surface {
-    fn surface_resize(&mut self, width: u32, height: u32) {
+    pub fn resize(&mut self) {
+        self.resize_swapchain_bitmap().unwrap();
+    }
+
+    fn render(&mut self) -> Result<()> {
         
-        // match self.render_target {
-        //     Some(r) => SafeRelease!(r),
-        //     None => {}
-        // };
 
-        // self.render_target = Some(render_target);
+        Ok(())
     }
 
-    fn begin(&self) {
-        unsafe { self.target.BeginDraw() };
+    fn release_device(&mut self) {
+        self.target = None;
+        self.swapchain = None;
+        self.release_device_resources();
     }
 
-    fn end(&self) {
+    fn release_device_resources(&mut self) {
+        self.brush = None;
+        self.clock = None;
+        self.shadow = None;
+    }
+
+    fn present(&self, sync: u32, flags: u32) -> Result<()> {
+        unsafe { self.swapchain.as_ref().unwrap().Present(sync, flags).ok() }
+    }
+
+    fn draw(&self, target: &ID2D1DeviceContext) -> Result<()> {
+        
+
+        Ok(())
+    }
+
+    fn draw_clock(&self) -> Result<()> {
+        let target = self.target.as_ref().unwrap();
+        let brush = self.brush.as_ref().unwrap();
+
+        let size = unsafe { target.GetSize() };
+
+        #[allow(clippy::manual_clamp)]
+        let radius = size.width.min(size.height).max(200.0) / 2.0 - 50.0;
+        let translation = Matrix3x2::translation(size.width / 2.0, size.height / 2.0);
+        unsafe { target.SetTransform(&translation) };
+
+        let ellipse = D2D1_ELLIPSE {
+            point: D2D_POINT_2F::default(),
+            radiusX: radius,
+            radiusY: radius,
+        };
+
+        let swing = unsafe {
+            target.DrawEllipse(&ellipse, brush, radius / 20.0, None);
+            self.variable.GetValue()?
+        };
+        let mut angles = Angles::now();
+
+        if swing < 1.0 {
+            if self.angles.second > angles.second {
+                angles.second += 360.0;
+            }
+            if self.angles.minute > angles.minute {
+                angles.minute += 360.0;
+            }
+            if self.angles.hour > angles.hour {
+                angles.hour += 360.0;
+            }
+
+            angles.second *= swing as f32;
+            angles.minute *= swing as f32;
+            angles.hour *= swing as f32;
+        }
+
         unsafe {
-            self.target.EndDraw(None, None).unwrap();
+            target.SetTransform(&(Matrix3x2::rotation(angles.second, 0.0, 0.0) * translation));
+
+            target.DrawLine(
+                D2D_POINT_2F::default(),
+                D2D_POINT_2F {
+                    x: 0.0,
+                    y: -(radius * 0.75),
+                },
+                brush,
+                radius / 25.0,
+                &self.style,
+            );
+
+            target.SetTransform(&(Matrix3x2::rotation(angles.minute, 0.0, 0.0) * translation));
+
+            target.DrawLine(
+                D2D_POINT_2F::default(),
+                D2D_POINT_2F {
+                    x: 0.0,
+                    y: -(radius * 0.75),
+                },
+                brush,
+                radius / 15.0,
+                &self.style,
+            );
+
+            target.SetTransform(&(Matrix3x2::rotation(angles.hour, 0.0, 0.0) * translation));
+
+            target.DrawLine(
+                D2D_POINT_2F::default(),
+                D2D_POINT_2F {
+                    x: 0.0,
+                    y: -(radius * 0.5),
+                },
+                brush,
+                radius / 10.0,
+                &self.style,
+            );
+        }
+
+        Ok(())
+    }
+
+    fn create_device_size_resources(&mut self) -> Result<()> {
+        let target = self.target.as_ref().unwrap();
+        let clock = self.create_clock(target)?;
+        self.shadow = create_shadow(target, &clock).ok();
+        self.clock = Some(clock);
+
+        Ok(())
+    }
+
+    fn create_clock(&self, target: &ID2D1DeviceContext) -> Result<ID2D1Bitmap1> {
+        let size_f = unsafe { target.GetSize() };
+
+        let size_u = D2D_SIZE_U {
+            width: (size_f.width * self.dpi / 96.0) as u32,
+            height: (size_f.height * self.dpi / 96.0) as u32,
+        };
+
+        let properties = D2D1_BITMAP_PROPERTIES1 {
+            pixelFormat: D2D1_PIXEL_FORMAT {
+                format: DXGI_FORMAT_B8G8R8A8_UNORM,
+                alphaMode: D2D1_ALPHA_MODE_PREMULTIPLIED,
+            },
+            dpiX: self.dpi,
+            dpiY: self.dpi,
+            bitmapOptions: D2D1_BITMAP_OPTIONS_TARGET,
+            ..Default::default()
+        };
+
+        unsafe { target.CreateBitmap2(size_u, None, 0, &properties) }
+    }
+
+    fn resize_swapchain_bitmap(&mut self) -> Result<()> {
+        if let Some(target) = &self.target {
+            let swapchain = self.swapchain.as_ref().unwrap();
+            unsafe { target.SetTarget(None) };
+
+            if unsafe {
+                swapchain
+                    .ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, 0)
+                    .is_ok()
+            } {
+                create_swapchain_bitmap(swapchain, target)?;
+                self.create_device_size_resources()?;
+            } else {
+                self.release_device();
+            }
+
+            self.render()?;
+        }
+
+        Ok(())
+    }
+
+    fn message_handler(&mut self, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+        unsafe {
+            match message {
+                WM_PAINT => {
+                    let mut ps = PAINTSTRUCT::default();
+                    BeginPaint(self.handle, &mut ps);
+                    self.render().unwrap();
+                    EndPaint(self.handle, &ps);
+                    LRESULT(0)
+                }
+                WM_SIZE => {
+                    if wparam.0 != SIZE_MINIMIZED as usize {
+                        self.resize_swapchain_bitmap().unwrap();
+                    }
+                    LRESULT(0)
+                }
+                WM_DISPLAYCHANGE => {
+                    self.render().unwrap();
+                    LRESULT(0)
+                }
+                WM_USER => {
+                    if self.present(0, DXGI_PRESENT_TEST).is_ok() {
+                        self.dxfactory.UnregisterOcclusionStatus(self.occlusion);
+                        self.occlusion = 0;
+                        self.visible = true;
+                    }
+                    LRESULT(0)
+                }
+                WM_ACTIVATE => {
+                    self.visible = true; // TODO: unpack !HIWORD(wparam);
+                    LRESULT(0)
+                }
+                WM_DESTROY => {
+                    PostQuitMessage(0);
+                    LRESULT(0)
+                }
+                _ => DefWindowProcA(self.handle, message, wparam, lparam),
+            }
         }
     }
 
-    fn command(&self, ctx: &[Command], align: AlignMode, layout: LayoutMode) {
-        let mut hr = 0;
+    fn run(&mut self) -> Result<()> {
+        unsafe {
+            let instance = GetModuleHandleA(None)?;
+            debug_assert!(instance.0 != 0);
+            let window_class = s!("window");
 
-        // for c in ctx {
-        //     match c {
-        //         Command::FillRectangle(x, y, width, height, radius, color) => {
-        //             let color = create_d3dcolorvalue(*color);
-        //             let mut brush = unsafe { std::mem::zeroed() };
-        //             unsafe { (*render_target).CreateSolidColorBrush(&color, null(), &mut brush) };
+            let wc = WNDCLASSA {
+                hCursor: LoadCursorW(None, IDC_HAND)?,
+                hInstance: instance.into(),
+                lpszClassName: window_class,
 
-        //             let rect = D2D1_RECT_F {
-        //                 left: *x as f32,
-        //                 top: *y as f32,
-        //                 right: (*x + (*width)) as f32,
-        //                 bottom: (*y + (*height)) as f32,
-        //             };
-        //             if *radius == 0.0 {
-        //                 unsafe {
-        //                     (*render_target).FillRectangle(&rect, brush as *mut ID2D1Brush);
-        //                 }
-        //             } else {
-        //                 let rounded_rect = D2D1_ROUNDED_RECT {
-        //                     rect: rect,
-        //                     radiusX: *radius as f32,
-        //                     radiusY: *radius as f32,
-        //                 };
-        //                 unsafe {
-        //                     (*render_target)
-        //                         .FillRoundedRectangle(&rounded_rect, brush as *mut ID2D1Brush);
-        //                 }
-        //             }
-        //             SafeRelease!(brush);
-        //         }
-        //         Command::WriteString(x, y, width, height, color, string) => {
-        //             let color = create_d3dcolorvalue(*color);
-        //             let mut string = string.encode_utf16().collect::<Vec<u16>>();
-        //             string.push(0);
-        //             let mut font_name = "Yu gothic".encode_utf16().collect::<Vec<u16>>();
-        //             font_name.push(0);
-        //             let mut lang = "en-us".encode_utf16().collect::<Vec<u16>>();
-        //             lang.push(0);
-        //             let mut text_format = unsafe { std::mem::zeroed() };
-        //             let font_size = (*height as f32) / 2.0;
-        //             unsafe {
-        //                 (*self.dwrite_factory).CreateTextFormat(
-        //                     font_name.as_ptr(),
-        //                     null_mut(),
-        //                     DWRITE_FONT_WEIGHT_REGULAR,
-        //                     DWRITE_FONT_STYLE_NORMAL,
-        //                     DWRITE_FONT_STRETCH_NORMAL,
-        //                     font_size,
-        //                     lang.as_ptr(),
-        //                     &mut text_format,
-        //                 );
-        //                 (*text_format).SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
-        //                 (*text_format).SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
-        //             }
-        //             let mut brush = unsafe { std::mem::zeroed() };
-        //             unsafe { (*render_target).CreateSolidColorBrush(&color, null(), &mut brush) };
+                style: CS_HREDRAW | CS_VREDRAW,
+                lpfnWndProc: Some(Self::wndproc),
+                ..Default::default()
+            };
 
-        //             let layout_rect = D2D1_RECT_F {
-        //                 left: *x as f32,
-        //                 top: *y as f32,
-        //                 right: (*x + (*width)) as f32,
-        //                 bottom: (*y + (*height)) as f32,
-        //             };
+            let atom = RegisterClassA(&wc);
+            debug_assert!(atom != 0);
 
-        //             unsafe {
-        //                 (*render_target).DrawText(
-        //                     string.as_ptr(),
-        //                     string.len() as u32,
-        //                     text_format,
-        //                     &layout_rect,
-        //                     brush as *mut ID2D1Brush,
-        //                     D2D1_DRAW_TEXT_OPTIONS_CLIP,
-        //                     DWRITE_MEASURING_MODE_NATURAL,
-        //                 );
-        //                 SafeRelease!(brush);
-        //                 SafeRelease!(text_format);
-        //             }
-        //         }
-        //     }
-        // }
+            let handle = CreateWindowExA(
+                WINDOW_EX_STYLE::default(),
+                window_class,
+                s!("Sample Window"),
+                WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+                CW_USEDEFAULT,
+                CW_USEDEFAULT,
+                CW_USEDEFAULT,
+                CW_USEDEFAULT,
+                None,
+                None,
+                instance,
+                Some(self as *mut _ as _),
+            );
+
+            debug_assert!(handle.0 != 0);
+            debug_assert!(handle == self.handle);
+            let mut message = MSG::default();
+
+            loop {
+                if self.visible {
+                    self.render()?;
+
+                    while PeekMessageA(&mut message, None, 0, 0, PM_REMOVE).into() {
+                        if message.message == WM_QUIT {
+                            return Ok(());
+                        }
+                        DispatchMessageA(&message);
+                    }
+                } else {
+                    GetMessageA(&mut message, None, 0, 0);
+
+                    if message.message == WM_QUIT {
+                        return Ok(());
+                    }
+
+                    DispatchMessageA(&message);
+                }
+            }
+        }
     }
 
-    fn clear(&self, color: Color) {
-        unsafe { self.target.Clear(Some(&D2D1_COLOR_F {
-            r: 1.0,
-            g: 1.0,
-            b: 1.0,
-            a: 1.0,
-        })) };
+    extern "system" fn wndproc(
+        window: HWND,
+        message: u32,
+        wparam: WPARAM,
+        lparam: LPARAM,
+    ) -> LRESULT {
+        unsafe {
+            if message == WM_NCCREATE {
+                let cs = lparam.0 as *const CREATESTRUCTA;
+                let this = (*cs).lpCreateParams as *mut Self;
+                (*this).handle = window;
+
+                SetWindowLongPtrA(window, GWLP_USERDATA, this as _);
+            } else {
+                let this = GetWindowLongPtrA(window, GWLP_USERDATA) as *mut Self;
+
+                if !this.is_null() {
+                    return (*this).message_handler(message, wparam, lparam);
+                }
+            }
+
+            DefWindowProcA(window, message, wparam, lparam)
+        }
     }
 }
 
-impl Drop for D2D1Surface {
-    fn drop(&mut self) {
+fn get_time(frequency: i64) -> Result<f64> {
+    unsafe {
+        let mut time = 0;
+        QueryPerformanceCounter(&mut time)?;
+        Ok(time as f64 / frequency as f64)
+    }
+}
 
+fn create_brush(target: &ID2D1DeviceContext) -> Result<ID2D1SolidColorBrush> {
+    let color = D2D1_COLOR_F {
+        r: 0.92,
+        g: 0.38,
+        b: 0.208,
+        a: 1.0,
+    };
+
+    let properties = D2D1_BRUSH_PROPERTIES {
+        opacity: 0.8,
+        transform: Matrix3x2::identity(),
+    };
+
+    unsafe { target.CreateSolidColorBrush(&color, Some(&properties)) }
+}
+
+fn create_shadow(target: &ID2D1DeviceContext, clock: &ID2D1Bitmap1) -> Result<ID2D1Effect> {
+    unsafe {
+        let shadow = target.CreateEffect(&CLSID_D2D1Shadow)?;
+
+        shadow.SetInput(0, clock, true);
+        Ok(shadow)
     }
 }
 
@@ -218,7 +537,6 @@ fn create_style(factory: &ID2D1Factory1) -> Result<ID2D1StrokeStyle> {
 
     unsafe { factory.CreateStrokeStyle(&props, None) }
 }
-
 
 fn create_transition() -> Result<IUIAnimationTransition> {
     unsafe {
@@ -280,6 +598,11 @@ fn create_render_target(
     }
 }
 
+fn get_dxgi_factory(device: &ID3D11Device) -> Result<IDXGIFactory2> {
+    let dxdevice = device.cast::<IDXGIDevice>()?;
+    unsafe { dxdevice.GetAdapter()?.GetParent() }
+}
+
 fn create_swapchain_bitmap(swapchain: &IDXGISwapChain1, target: &ID2D1DeviceContext) -> Result<()> {
     let surface: IDXGISurface = unsafe { swapchain.GetBuffer(0)? };
 
@@ -302,11 +625,6 @@ fn create_swapchain_bitmap(swapchain: &IDXGISwapChain1, target: &ID2D1DeviceCont
     Ok(())
 }
 
-fn get_dxgi_factory(device: &ID3D11Device) -> Result<IDXGIFactory2> {
-    let dxdevice = device.cast::<IDXGIDevice>().unwrap();
-    unsafe { dxdevice.GetAdapter().unwrap().GetParent() }
-}
-
 fn create_swapchain(device: &ID3D11Device, window: HWND) -> Result<IDXGISwapChain1> {
     let factory = get_dxgi_factory(device)?;
 
@@ -323,20 +641,4 @@ fn create_swapchain(device: &ID3D11Device, window: HWND) -> Result<IDXGISwapChai
     };
 
     unsafe { factory.CreateSwapChainForHwnd(device, window, &props, None, None) }
-}
-
-fn create_brush(target: &ID2D1DeviceContext) -> Result<ID2D1SolidColorBrush> {
-    let color = D2D1_COLOR_F {
-        r: 0.92,
-        g: 0.38,
-        b: 0.208,
-        a: 1.0,
-    };
-
-    let properties = D2D1_BRUSH_PROPERTIES {
-        opacity: 0.8,
-        transform: Matrix3x2::identity(),
-    };
-
-    unsafe { target.CreateSolidColorBrush(&color, Some(&properties)) }
 }
