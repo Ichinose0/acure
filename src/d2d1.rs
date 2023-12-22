@@ -66,16 +66,32 @@ impl Surface for D2D1Surface {
             target.SetTarget(clock);
             target.Clear(None);
             self.draw_clock().unwrap();
-            target.SetTarget(&previous);
-            target.SetTransform(&Matrix3x2::translation(5.0, 5.0));
+            for i in ctx {
+                match i {
+                    Command::FillRectangle(x,y,width,height,radius,color) => {
+                        let rect = D2D_RECT_F {
+                            left: *x as f32,
+                            top: *y as f32,
+                            right: (width+x) as f32,
+                            bottom: (height+y) as f32,
+                        };
 
-            target.DrawImage(
-                &shadow.GetOutput().unwrap(),
-                None,
-                None,
-                D2D1_INTERPOLATION_MODE_LINEAR,
-                D2D1_COMPOSITE_MODE_SOURCE_OVER,
-            );
+                        let brush = create_brush_from_color(target,*color).unwrap();
+            
+                        target.FillRectangle(&rect,&brush);
+                    },
+                    Command::WriteString(_, _, _, _, _, _) => {},
+                }
+            }
+            target.SetTarget(&previous);
+            
+            // target.DrawImage(
+            //     &shadow.GetOutput().unwrap(),
+            //     None,
+            //     None,
+            //     D2D1_INTERPOLATION_MODE_LINEAR,
+            //     D2D1_COMPOSITE_MODE_SOURCE_OVER,
+            // );
 
             target.SetTransform(&Matrix3x2::identity());
 
@@ -193,12 +209,6 @@ impl D2D1Surface {
         self.resize_swapchain_bitmap().unwrap();
     }
 
-    fn render(&mut self) -> Result<()> {
-        
-
-        Ok(())
-    }
-
     fn release_device(&mut self) {
         self.target = None;
         self.swapchain = None;
@@ -215,12 +225,6 @@ impl D2D1Surface {
         unsafe { self.swapchain.as_ref().unwrap().Present(sync, flags).ok() }
     }
 
-    fn draw(&self, target: &ID2D1DeviceContext) -> Result<()> {
-        
-
-        Ok(())
-    }
-
     fn draw_clock(&self) -> Result<()> {
         let target = self.target.as_ref().unwrap();
         let brush = self.brush.as_ref().unwrap();
@@ -230,76 +234,7 @@ impl D2D1Surface {
         #[allow(clippy::manual_clamp)]
         let radius = size.width.min(size.height).max(200.0) / 2.0 - 50.0;
         let translation = Matrix3x2::translation(size.width / 2.0, size.height / 2.0);
-        unsafe { target.SetTransform(&translation) };
-
-        let ellipse = D2D1_ELLIPSE {
-            point: D2D_POINT_2F::default(),
-            radiusX: radius,
-            radiusY: radius,
-        };
-
-        let swing = unsafe {
-            target.DrawEllipse(&ellipse, brush, radius / 20.0, None);
-            self.variable.GetValue()?
-        };
-        let mut angles = Angles::now();
-
-        if swing < 1.0 {
-            if self.angles.second > angles.second {
-                angles.second += 360.0;
-            }
-            if self.angles.minute > angles.minute {
-                angles.minute += 360.0;
-            }
-            if self.angles.hour > angles.hour {
-                angles.hour += 360.0;
-            }
-
-            angles.second *= swing as f32;
-            angles.minute *= swing as f32;
-            angles.hour *= swing as f32;
-        }
-
-        unsafe {
-            target.SetTransform(&(Matrix3x2::rotation(angles.second, 0.0, 0.0) * translation));
-
-            target.DrawLine(
-                D2D_POINT_2F::default(),
-                D2D_POINT_2F {
-                    x: 0.0,
-                    y: -(radius * 0.75),
-                },
-                brush,
-                radius / 25.0,
-                &self.style,
-            );
-
-            target.SetTransform(&(Matrix3x2::rotation(angles.minute, 0.0, 0.0) * translation));
-
-            target.DrawLine(
-                D2D_POINT_2F::default(),
-                D2D_POINT_2F {
-                    x: 0.0,
-                    y: -(radius * 0.75),
-                },
-                brush,
-                radius / 15.0,
-                &self.style,
-            );
-
-            target.SetTransform(&(Matrix3x2::rotation(angles.hour, 0.0, 0.0) * translation));
-
-            target.DrawLine(
-                D2D_POINT_2F::default(),
-                D2D_POINT_2F {
-                    x: 0.0,
-                    y: -(radius * 0.5),
-                },
-                brush,
-                radius / 10.0,
-                &self.style,
-            );
-        }
+        unsafe { target.SetTransform(&Matrix3x2::identity()) };
 
         Ok(())
     }
@@ -350,138 +285,9 @@ impl D2D1Surface {
             } else {
                 self.release_device();
             }
-
-            self.render()?;
         }
 
         Ok(())
-    }
-
-    fn message_handler(&mut self, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-        unsafe {
-            match message {
-                WM_PAINT => {
-                    let mut ps = PAINTSTRUCT::default();
-                    BeginPaint(self.handle, &mut ps);
-                    self.render().unwrap();
-                    EndPaint(self.handle, &ps);
-                    LRESULT(0)
-                }
-                WM_SIZE => {
-                    if wparam.0 != SIZE_MINIMIZED as usize {
-                        self.resize_swapchain_bitmap().unwrap();
-                    }
-                    LRESULT(0)
-                }
-                WM_DISPLAYCHANGE => {
-                    self.render().unwrap();
-                    LRESULT(0)
-                }
-                WM_USER => {
-                    if self.present(0, DXGI_PRESENT_TEST).is_ok() {
-                        self.dxfactory.UnregisterOcclusionStatus(self.occlusion);
-                        self.occlusion = 0;
-                        self.visible = true;
-                    }
-                    LRESULT(0)
-                }
-                WM_ACTIVATE => {
-                    self.visible = true; // TODO: unpack !HIWORD(wparam);
-                    LRESULT(0)
-                }
-                WM_DESTROY => {
-                    PostQuitMessage(0);
-                    LRESULT(0)
-                }
-                _ => DefWindowProcA(self.handle, message, wparam, lparam),
-            }
-        }
-    }
-
-    fn run(&mut self) -> Result<()> {
-        unsafe {
-            let instance = GetModuleHandleA(None)?;
-            debug_assert!(instance.0 != 0);
-            let window_class = s!("window");
-
-            let wc = WNDCLASSA {
-                hCursor: LoadCursorW(None, IDC_HAND)?,
-                hInstance: instance.into(),
-                lpszClassName: window_class,
-
-                style: CS_HREDRAW | CS_VREDRAW,
-                lpfnWndProc: Some(Self::wndproc),
-                ..Default::default()
-            };
-
-            let atom = RegisterClassA(&wc);
-            debug_assert!(atom != 0);
-
-            let handle = CreateWindowExA(
-                WINDOW_EX_STYLE::default(),
-                window_class,
-                s!("Sample Window"),
-                WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-                CW_USEDEFAULT,
-                CW_USEDEFAULT,
-                CW_USEDEFAULT,
-                CW_USEDEFAULT,
-                None,
-                None,
-                instance,
-                Some(self as *mut _ as _),
-            );
-
-            debug_assert!(handle.0 != 0);
-            debug_assert!(handle == self.handle);
-            let mut message = MSG::default();
-
-            loop {
-                if self.visible {
-                    self.render()?;
-
-                    while PeekMessageA(&mut message, None, 0, 0, PM_REMOVE).into() {
-                        if message.message == WM_QUIT {
-                            return Ok(());
-                        }
-                        DispatchMessageA(&message);
-                    }
-                } else {
-                    GetMessageA(&mut message, None, 0, 0);
-
-                    if message.message == WM_QUIT {
-                        return Ok(());
-                    }
-
-                    DispatchMessageA(&message);
-                }
-            }
-        }
-    }
-
-    extern "system" fn wndproc(
-        window: HWND,
-        message: u32,
-        wparam: WPARAM,
-        lparam: LPARAM,
-    ) -> LRESULT {
-        unsafe {
-            if message == WM_NCCREATE {
-                let cs = lparam.0 as *const CREATESTRUCTA;
-                let this = (*cs).lpCreateParams as *mut Self;
-                (*this).handle = window;
-
-                SetWindowLongPtrA(window, GWLP_USERDATA, this as _);
-            } else {
-                let this = GetWindowLongPtrA(window, GWLP_USERDATA) as *mut Self;
-
-                if !this.is_null() {
-                    return (*this).message_handler(message, wparam, lparam);
-                }
-            }
-
-            DefWindowProcA(window, message, wparam, lparam)
-        }
     }
 }
 
@@ -508,6 +314,25 @@ fn create_brush(target: &ID2D1DeviceContext) -> Result<ID2D1SolidColorBrush> {
 
     unsafe { target.CreateSolidColorBrush(&color, Some(&properties)) }
 }
+
+fn create_brush_from_color(target: &ID2D1DeviceContext,color: Color) -> Result<ID2D1SolidColorBrush> {
+    let color = match color {
+        Color::ARGB(a, r, g, b) => D2D1_COLOR_F {
+            r: r as f32,
+            g: g as f32,
+            b: b as f32,
+            a: a as f32,
+        },
+    };
+
+    let properties = D2D1_BRUSH_PROPERTIES {
+        opacity: 1.0,
+        transform: Matrix3x2::identity(),
+    };
+
+    unsafe { target.CreateSolidColorBrush(&color, Some(&properties)) }
+}
+
 
 fn create_shadow(target: &ID2D1DeviceContext, clock: &ID2D1Bitmap1) -> Result<ID2D1Effect> {
     unsafe {

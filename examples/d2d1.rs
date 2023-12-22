@@ -75,7 +75,7 @@ fn main() -> Result<(), impl std::error::Error> {
     event_loop.run(move |event, elwt| match event {
         Event::WindowEvent { event, window_id } if window_id == window.id() => match event {
             WindowEvent::Resized(size) => {
-                //surface.resize();
+                surface.resize();
             }
             WindowEvent::CloseRequested => elwt.exit(),
             WindowEvent::RedrawRequested => {
