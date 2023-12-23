@@ -96,7 +96,7 @@ fn main() -> Result<(), impl std::error::Error> {
                     240,
                     40,
                     10.0,
-                    Color::ARGB(255, 255, 0, 255),
+                    Color::ARGB(255, 128, 128, 128),
                 ));
                 acure.write(&mut surface);
                 acure.clear();

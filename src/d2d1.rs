@@ -390,10 +390,10 @@ fn create_brush_from_color(
 ) -> Result<ID2D1SolidColorBrush> {
     let color = match color {
         Color::ARGB(a, r, g, b) => D2D1_COLOR_F {
-            r: (r/255) as f32,
-            g: (g/255) as f32,
-            b: (b/255) as f32,
-            a: (a/255) as f32,
+            r: (r as f32)/255.0,
+            g: (g as f32)/255.0,
+            b: (b as f32)/255.0,
+            a: (a as f32)/255.0,
         },
     };
 
