@@ -83,7 +83,21 @@ impl Surface for D2D1Surface {
 
                     let brush = create_brush_from_color(target, *color).unwrap();
 
-                    target.FillRectangle(&rect, &brush);
+                
+                    if *radius != 0.0 {
+                        let rounded_rect = D2D1_ROUNDED_RECT {
+                            rect,
+                            radiusX: *radius as f32,
+                            radiusY: *radius as f32,
+                        };
+                        target.FillRoundedRectangle(&rounded_rect, &brush);
+                    } else {
+                        target.FillRectangle(&rect, &brush);
+                    }
+
+                    
+
+                    
                 }
                 Command::WriteString(x, y, width, height, color, string) => {
                     let mut string = string.encode_utf16().collect::<Vec<u16>>();
