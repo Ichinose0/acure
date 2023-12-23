@@ -81,14 +81,7 @@ fn main() -> Result<(), impl std::error::Error> {
             WindowEvent::RedrawRequested => {
                 acure.begin(&mut surface);
                 
-                acure.push(Command::WriteString(
-                    10,
-                    10,
-                    240,
-                    40,
-                    Color::ARGB(255, 0,0,0),
-                    String::from("あ"),
-                ));
+                
 
                 acure.push(Command::FillRectangle(
                     10,
@@ -97,6 +90,15 @@ fn main() -> Result<(), impl std::error::Error> {
                     40,
                     10.0,
                     Color::ARGB(255, 128, 128, 128),
+                ));
+
+                acure.push(Command::WriteString(
+                    10,
+                    10,
+                    240,
+                    40,
+                    Color::ARGB(255, 0,0,0),
+                    String::from("あ"),
                 ));
                 acure.write(&mut surface);
                 acure.clear();

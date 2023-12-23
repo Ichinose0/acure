@@ -106,7 +106,7 @@ impl Surface for D2D1Surface {
                     font_name.push(0);
                     let mut lang = "en-us".encode_utf16().collect::<Vec<u16>>();
                     lang.push(0);
-                    let font_size = (*height as f32);
+                    let font_size = (*height as f32) /1.7;
                     let format;
                     unsafe {
                         format = dwfactory.CreateTextFormat(
