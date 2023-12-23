@@ -2,10 +2,10 @@ use std::ptr::{null, null_mut};
 use windows::{
     core::*, Foundation::Numerics::*, Win32::Foundation::*, Win32::Graphics::Direct2D::Common::*,
     Win32::Graphics::Direct2D::*, Win32::Graphics::Direct3D::*, Win32::Graphics::Direct3D11::*,
-    Win32::Graphics::Dxgi::Common::*, Win32::Graphics::Dxgi::*, Win32::Graphics::Gdi::*,
-    Win32::System::Com::*, Win32::System::LibraryLoader::*, Win32::System::Performance::*,
-    Win32::System::SystemInformation::GetLocalTime, Win32::UI::Animation::*,
-    Win32::UI::WindowsAndMessaging::*,
+    Win32::Graphics::DirectWrite::*, Win32::Graphics::Dxgi::Common::*, Win32::Graphics::Dxgi::*,
+    Win32::Graphics::Gdi::*, Win32::System::Com::*, Win32::System::LibraryLoader::*,
+    Win32::System::Performance::*, Win32::System::SystemInformation::GetLocalTime,
+    Win32::UI::Animation::*, Win32::UI::WindowsAndMessaging::*,
 };
 
 use crate::surface::Surface;
@@ -24,6 +24,8 @@ impl Surface for D2D1Surface {
 
             let swapchain = create_swapchain(&device, self.handle).unwrap();
             create_swapchain_bitmap(&swapchain, &target).unwrap();
+
+            unsafe { target.SetUnitMode(D2D1_UNIT_MODE_PIXELS) };
 
             self.brush = create_brush(&target).ok();
             self.target = Some(target);
@@ -45,7 +47,8 @@ impl Surface for D2D1Surface {
             if error.code() == DXGI_STATUS_OCCLUDED {
                 self.occlusion = unsafe {
                     self.dxfactory
-                        .RegisterOcclusionStatusWindow(self.handle, WM_USER).unwrap()
+                        .RegisterOcclusionStatusWindow(self.handle, WM_USER)
+                        .unwrap()
                 };
                 self.visible = false;
             } else {
@@ -54,54 +57,95 @@ impl Surface for D2D1Surface {
         }
     }
 
-    fn command(&self, ctx: &[Command], align: AlignMode, layout: LayoutMode) {
+    fn command(&self, command: &Command, align: AlignMode, layout: LayoutMode) {
         let target = self.target.as_ref().unwrap();
         let clock = self.clock.as_ref().unwrap();
+        let dwfactory = &self.dwfactory;
         let shadow = self.shadow.as_ref().unwrap();
 
         unsafe {
-            self.manager.Update(get_time(self.frequency).unwrap(), None).unwrap();
+            self.manager
+                .Update(get_time(self.frequency).unwrap(), None)
+                .unwrap();
 
             let previous = target.GetTarget().unwrap();
             target.SetTarget(clock);
             target.Clear(None);
-            self.draw_clock().unwrap();
-            for i in ctx {
-                match i {
-                    Command::FillRectangle(x,y,width,height,radius,color) => {
-                        let rect = D2D_RECT_F {
-                            left: *x as f32,
-                            top: *y as f32,
-                            right: (width+x) as f32,
-                            bottom: (height+y) as f32,
-                        };
 
-                        let brush = create_brush_from_color(target,*color).unwrap();
-            
-                        target.FillRectangle(&rect,&brush);
-                    },
-                    Command::WriteString(_, _, _, _, _, _) => {},
+            match command {
+                Command::FillRectangle(x, y, width, height, radius, color) => {
+                    let rect = D2D_RECT_F {
+                        left: *x as f32,
+                        top: *y as f32,
+                        right: (width + x) as f32,
+                        bottom: (height + y) as f32,
+                    };
+
+                    let brush = create_brush_from_color(target, *color).unwrap();
+
+                    target.FillRectangle(&rect, &brush);
+                }
+                Command::WriteString(x, y, width, height, color, string) => {
+                    let mut string = string.encode_utf16().collect::<Vec<u16>>();
+                    string.push(0);
+                    let mut font_name = "Yu gothic".encode_utf16().collect::<Vec<u16>>();
+                    font_name.push(0);
+                    let mut lang = "en-us".encode_utf16().collect::<Vec<u16>>();
+                    lang.push(0);
+                    let font_size = (*height as f32);
+                    let format;
+                    unsafe {
+                        format = dwfactory.CreateTextFormat(
+                            PCWSTR(font_name.as_ptr()),
+                            None,
+                            DWRITE_FONT_WEIGHT_REGULAR,
+                            DWRITE_FONT_STYLE_NORMAL,
+                            DWRITE_FONT_STRETCH_NORMAL,
+                            font_size,
+                            PCWSTR(lang.as_ptr()),
+                        ).unwrap();
+                        format.SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER).unwrap();
+                        format.SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER).unwrap();
+                    }
+                    let brush = create_brush_from_color(target, *color).unwrap();
+
+                    let layout_rect = D2D_RECT_F {
+                        left: *x as f32,
+                        top: *y as f32,
+                        right: (width + x) as f32,
+                        bottom: (height + y) as f32,
+                    };
+
+                    target.DrawText(
+                        &string,
+                        &format,
+                        &layout_rect,
+                        &brush,
+                        D2D1_DRAW_TEXT_OPTIONS_CLIP,
+                        DWRITE_MEASURING_MODE_NATURAL,
+                    );
                 }
             }
-            target.SetTarget(&previous);
-            
-            // target.DrawImage(
-            //     &shadow.GetOutput().unwrap(),
-            //     None,
-            //     None,
-            //     D2D1_INTERPOLATION_MODE_LINEAR,
-            //     D2D1_COMPOSITE_MODE_SOURCE_OVER,
-            // );
+                
+                target.SetTarget(&previous);
 
-            target.SetTransform(&Matrix3x2::identity());
+                // target.DrawImage(
+                //     &shadow.GetOutput().unwrap(),
+                //     None,
+                //     None,
+                //     D2D1_INTERPOLATION_MODE_LINEAR,
+                //     D2D1_COMPOSITE_MODE_SOURCE_OVER,
+                // );
 
-            target.DrawImage(
-                clock,
-                None,
-                None,
-                D2D1_INTERPOLATION_MODE_LINEAR,
-                D2D1_COMPOSITE_MODE_SOURCE_OVER,
-            );
+                target.SetTransform(&Matrix3x2::identity());
+
+                target.DrawImage(
+                    clock,
+                    None,
+                    None,
+                    D2D1_INTERPOLATION_MODE_LINEAR,
+                    D2D1_COMPOSITE_MODE_SOURCE_OVER,
+                );
         }
     }
 
@@ -116,6 +160,7 @@ pub struct D2D1Surface {
     handle: HWND,
     factory: ID2D1Factory1,
     dxfactory: IDXGIFactory2,
+    dwfactory: IDWriteFactory,
     style: ID2D1StrokeStyle,
     manager: IUIAnimationManager,
     variable: IUIAnimationVariable,
@@ -159,6 +204,8 @@ impl D2D1Surface {
     pub fn new(hwnd: isize) -> Self {
         let factory = create_factory().unwrap();
         let dxfactory: IDXGIFactory2 = unsafe { CreateDXGIFactory1().unwrap() };
+        let dwfactory: IDWriteFactory =
+            unsafe { DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED).unwrap() };
         let style = create_style(&factory).unwrap();
         let manager: IUIAnimationManager =
             unsafe { CoCreateInstance(&UIAnimationManager, None, CLSCTX_ALL).unwrap() };
@@ -174,7 +221,9 @@ impl D2D1Surface {
         let variable = unsafe {
             let variable = manager.CreateAnimationVariable(0.0).unwrap();
 
-            manager.ScheduleTransition(&variable, &transition, get_time(frequency).unwrap()).unwrap();
+            manager
+                .ScheduleTransition(&variable, &transition, get_time(frequency).unwrap())
+                .unwrap();
 
             variable
         };
@@ -183,6 +232,7 @@ impl D2D1Surface {
             handle: HWND(hwnd),
             factory,
             dxfactory,
+            dwfactory,
             style,
             manager,
             variable,
@@ -199,9 +249,14 @@ impl D2D1Surface {
         }
     }
 
-    fn d2d1_color(&self,color: Color) -> D2D1_COLOR_F {
+    fn d2d1_color(&self, color: Color) -> D2D1_COLOR_F {
         match color {
-            Color::ARGB(a,r,g,b) => D2D1_COLOR_F { r: r as f32, g: g as f32, b: b as f32, a: a as f32}
+            Color::ARGB(a, r, g, b) => D2D1_COLOR_F {
+                r: r as f32,
+                g: g as f32,
+                b: b as f32,
+                a: a as f32,
+            },
         }
     }
 
@@ -315,7 +370,10 @@ fn create_brush(target: &ID2D1DeviceContext) -> Result<ID2D1SolidColorBrush> {
     unsafe { target.CreateSolidColorBrush(&color, Some(&properties)) }
 }
 
-fn create_brush_from_color(target: &ID2D1DeviceContext,color: Color) -> Result<ID2D1SolidColorBrush> {
+fn create_brush_from_color(
+    target: &ID2D1DeviceContext,
+    color: Color,
+) -> Result<ID2D1SolidColorBrush> {
     let color = match color {
         Color::ARGB(a, r, g, b) => D2D1_COLOR_F {
             r: r as f32,
@@ -332,7 +390,6 @@ fn create_brush_from_color(target: &ID2D1DeviceContext,color: Color) -> Result<I
 
     unsafe { target.CreateSolidColorBrush(&color, Some(&properties)) }
 }
-
 
 fn create_shadow(target: &ID2D1DeviceContext, clock: &ID2D1Bitmap1) -> Result<ID2D1Effect> {
     unsafe {

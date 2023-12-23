@@ -5,6 +5,6 @@ pub trait Surface: Sized {
 
     fn begin(&mut self);
     fn clear(&self, color: Color);
-    fn command(&self, ctx: &[Command], align: AlignMode, layout: LayoutMode);
+    fn command(&self, command: &Command, align: AlignMode, layout: LayoutMode);
     fn end(&mut self);
 }
