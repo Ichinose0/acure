@@ -113,7 +113,7 @@ impl Acure {
     {
         if self.state == ContextState::Begin {
             surface.clear(self.bgr);
-            for i in self.buffer.iter().rev() {
+            for i in &self.buffer {
                 surface.command(i, self.align, self.layout);
             }
             
