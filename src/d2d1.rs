@@ -266,10 +266,10 @@ impl D2D1Surface {
     fn d2d1_color(&self, color: Color) -> D2D1_COLOR_F {
         match color {
             Color::ARGB(a, r, g, b) => D2D1_COLOR_F {
-                r: r as f32,
-                g: g as f32,
-                b: b as f32,
-                a: a as f32,
+                r: (r as f32)/255.0,
+                g: (g as f32)/255.0,
+                b: (b as f32)/255.0,
+                a: (a as f32)/255.0,
             },
         }
     }
