@@ -116,8 +116,7 @@ impl Acure {
             for i in &self.buffer {
                 surface.command(i, self.align, self.layout);
             }
-            
-            
+
             surface.end();
             self.state = ContextState::End;
             return Ok(());

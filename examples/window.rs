@@ -1,4 +1,3 @@
-use acure::d2d1::D2D1Surface;
 use acure::{Acure, AlignMode, Color, Command, LayoutMode};
 use raw_window_handle::HasWindowHandle;
 use winit::{
@@ -6,6 +5,31 @@ use winit::{
     event_loop::EventLoop,
     window::WindowBuilder,
 };
+
+pub struct Surface<T>
+where
+    T: acure::surface::Surface,
+{
+    surface: T,
+}
+
+impl<T> Surface<T>
+where
+    T: acure::surface::Surface,
+{
+    pub fn new(surface: T) -> Self {
+        Self { surface }
+    }
+
+    pub fn as_mut_raw(&mut self) -> &mut T {
+        &mut self.surface
+    }
+
+    pub fn resize(&mut self, width: u32, height: u32) {
+        self.surface.surface_resize(width, height)
+    }
+}
+
 fn main() -> Result<(), impl std::error::Error> {
     let event_loop = EventLoop::new().unwrap();
 
@@ -28,8 +52,10 @@ fn main() -> Result<(), impl std::error::Error> {
         raw_window_handle::RawWindowHandle::Orbital(_) => {
             panic!("This sample is available only Windows")
         }
-        raw_window_handle::RawWindowHandle::Xlib(_) => {
-            panic!("This sample is available only Windows")
+        #[cfg(target_os = "linux")]
+        raw_window_handle::RawWindowHandle::Xlib(handle) => {
+            use acure::x11::X11Surface;
+            surface = Surface::new(X11Surface::new(handle.window));
         }
         raw_window_handle::RawWindowHandle::Xcb(_) => {
             panic!("This sample is available only Windows")
@@ -43,9 +69,10 @@ fn main() -> Result<(), impl std::error::Error> {
         raw_window_handle::RawWindowHandle::Gbm(_) => {
             panic!("This sample is available only Windows")
         }
+        #[cfg(target_os = "windows")]
         raw_window_handle::RawWindowHandle::Win32(handle) => {
-            let size = window.inner_size();
-            surface = D2D1Surface::new(isize::from(handle.hwnd));
+            use acure::d2d1::D2D1Surface;
+            surface = Surface::new(D2D1Surface::new(isize::from(handle.hwnd)));
         }
         raw_window_handle::RawWindowHandle::WinRt(_) => {
             panic!("This sample is available only Windows")
@@ -75,13 +102,11 @@ fn main() -> Result<(), impl std::error::Error> {
     event_loop.run(move |event, elwt| match event {
         Event::WindowEvent { event, window_id } if window_id == window.id() => match event {
             WindowEvent::Resized(size) => {
-                surface.resize();
+                surface.resize(size.width, size.height);
             }
             WindowEvent::CloseRequested => elwt.exit(),
             WindowEvent::RedrawRequested => {
-                acure.begin(&mut surface);
-                
-                
+                acure.begin(surface.as_mut_raw());
 
                 acure.push(Command::FillRectangle(
                     10,
@@ -97,10 +122,10 @@ fn main() -> Result<(), impl std::error::Error> {
                     10,
                     240,
                     40,
-                    Color::ARGB(255, 0,0,0),
+                    Color::ARGB(255, 0, 0, 0),
                     String::from("あ"),
                 ));
-                acure.write(&mut surface);
+                acure.write(surface.as_mut_raw());
                 acure.clear();
                 window.pre_present_notify();
             }

@@ -83,7 +83,6 @@ impl Surface for D2D1Surface {
 
                     let brush = create_brush_from_color(target, *color).unwrap();
 
-                
                     if *radius != 0.0 {
                         let rounded_rect = D2D1_ROUNDED_RECT {
                             rect,
@@ -94,10 +93,6 @@ impl Surface for D2D1Surface {
                     } else {
                         target.FillRectangle(&rect, &brush);
                     }
-
-                    
-
-                    
                 }
                 Command::WriteString(x, y, width, height, color, string) => {
                     let mut string = string.encode_utf16().collect::<Vec<u16>>();
@@ -106,20 +101,26 @@ impl Surface for D2D1Surface {
                     font_name.push(0);
                     let mut lang = "en-us".encode_utf16().collect::<Vec<u16>>();
                     lang.push(0);
-                    let font_size = (*height as f32) /1.7;
+                    let font_size = (*height as f32) / 1.7;
                     let format;
                     unsafe {
-                        format = dwfactory.CreateTextFormat(
-                            PCWSTR(font_name.as_ptr()),
-                            None,
-                            DWRITE_FONT_WEIGHT_REGULAR,
-                            DWRITE_FONT_STYLE_NORMAL,
-                            DWRITE_FONT_STRETCH_NORMAL,
-                            font_size,
-                            PCWSTR(lang.as_ptr()),
-                        ).unwrap();
-                        format.SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER).unwrap();
-                        format.SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER).unwrap();
+                        format = dwfactory
+                            .CreateTextFormat(
+                                PCWSTR(font_name.as_ptr()),
+                                None,
+                                DWRITE_FONT_WEIGHT_REGULAR,
+                                DWRITE_FONT_STYLE_NORMAL,
+                                DWRITE_FONT_STRETCH_NORMAL,
+                                font_size,
+                                PCWSTR(lang.as_ptr()),
+                            )
+                            .unwrap();
+                        format
+                            .SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER)
+                            .unwrap();
+                        format
+                            .SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER)
+                            .unwrap();
                     }
                     let brush = create_brush_from_color(target, *color).unwrap();
 
@@ -140,26 +141,26 @@ impl Surface for D2D1Surface {
                     );
                 }
             }
-                
-                target.SetTarget(&previous);
 
-                // target.DrawImage(
-                //     &shadow.GetOutput().unwrap(),
-                //     None,
-                //     None,
-                //     D2D1_INTERPOLATION_MODE_LINEAR,
-                //     D2D1_COMPOSITE_MODE_SOURCE_OVER,
-                // );
+            target.SetTarget(&previous);
 
-                target.SetTransform(&Matrix3x2::identity());
+            // target.DrawImage(
+            //     &shadow.GetOutput().unwrap(),
+            //     None,
+            //     None,
+            //     D2D1_INTERPOLATION_MODE_LINEAR,
+            //     D2D1_COMPOSITE_MODE_SOURCE_OVER,
+            // );
 
-                target.DrawImage(
-                    clock,
-                    None,
-                    None,
-                    D2D1_INTERPOLATION_MODE_LINEAR,
-                    D2D1_COMPOSITE_MODE_SOURCE_OVER,
-                );
+            target.SetTransform(&Matrix3x2::identity());
+
+            target.DrawImage(
+                clock,
+                None,
+                None,
+                D2D1_INTERPOLATION_MODE_LINEAR,
+                D2D1_COMPOSITE_MODE_SOURCE_OVER,
+            );
         }
     }
 
@@ -266,10 +267,10 @@ impl D2D1Surface {
     fn d2d1_color(&self, color: Color) -> D2D1_COLOR_F {
         match color {
             Color::ARGB(a, r, g, b) => D2D1_COLOR_F {
-                r: (r as f32)/255.0,
-                g: (g as f32)/255.0,
-                b: (b as f32)/255.0,
-                a: (a as f32)/255.0,
+                r: (r as f32) / 255.0,
+                g: (g as f32) / 255.0,
+                b: (b as f32) / 255.0,
+                a: (a as f32) / 255.0,
             },
         }
     }
@@ -390,10 +391,10 @@ fn create_brush_from_color(
 ) -> Result<ID2D1SolidColorBrush> {
     let color = match color {
         Color::ARGB(a, r, g, b) => D2D1_COLOR_F {
-            r: (r as f32)/255.0,
-            g: (g as f32)/255.0,
-            b: (b as f32)/255.0,
-            a: (a as f32)/255.0,
+            r: (r as f32) / 255.0,
+            g: (g as f32) / 255.0,
+            b: (b as f32) / 255.0,
+            a: (a as f32) / 255.0,
         },
     };
 
