@@ -4,7 +4,7 @@ use std::{
 };
 
 use x11::xlib::{
-    Colormap, XAllocColor, XColor, XCreateGC, XOpenDisplay, XSetBackground, _XDisplay, _XGC,
+    Colormap, XAllocColor, XColor, XCreateGC, XOpenDisplay, XSetBackground, _XDisplay, _XGC, XFillRectangle, XSetForeground, XFlush,
 };
 
 use crate::{surface::Surface, Color};
@@ -12,11 +12,11 @@ use crate::{surface::Surface, Color};
 pub struct X11Surface {
     display: *mut _XDisplay,
     gc: *mut _XGC,
-    window: u64,
+    window: u32,
 }
 
 impl X11Surface {
-    pub fn new(window: u64) -> Self {
+    pub fn new(window: u32) -> Self {
         unsafe {
             let display = XOpenDisplay(null());
 
@@ -51,9 +51,24 @@ impl Surface for X11Surface {
         align: crate::AlignMode,
         layout: crate::LayoutMode,
     ) {
+        match command {
+            crate::Command::FillRectangle(x,y,width,height,radius,color) => {
+                unsafe {
+                    XSetForeground(self.display, self.gc, get_color(self.display,*color));
+                    XFillRectangle(self.display, self.window, self.gc, *x as i32,*y as i32,*width,*height);
+                }
+            },
+            crate::Command::WriteString(_, _, _, _, _, _) => {
+
+            },
+        }
     }
 
-    fn end(&mut self) {}
+    fn end(&mut self) {
+        unsafe {
+            XFlush(self.display);
+        }
+    }
 }
 
 fn get_color(display: *mut _XDisplay, color: Color) -> c_ulong {
