@@ -108,6 +108,6 @@ fn get_color(display: *mut _XDisplay, color: Color) -> c_ulong {
 
 fn get_window_attributes(display: *mut _XDisplay, window: c_ulong) -> XWindowAttributes {
     let mut attributes = unsafe { MaybeUninit::uninit().assume_init() };
-    unsafe { XGetWindowAttributes(display, window, &mut attributes) }
+    unsafe { XGetWindowAttributes(display, window, &mut attributes) };
     attributes
 }
