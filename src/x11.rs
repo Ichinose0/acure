@@ -1,10 +1,10 @@
 use std::{
     ffi::c_ulong,
-    ptr::{null, null_mut},
+    ptr::{null, null_mut}, mem::MaybeUninit,
 };
 
 use x11::xlib::{
-    Colormap, XAllocColor, XColor, XCreateGC, XOpenDisplay, XSetBackground, _XDisplay, _XGC, XFillRectangle, XSetForeground, XFlush,
+    Colormap, XAllocColor, XColor, XCreateGC, XOpenDisplay, XSetBackground, _XDisplay, _XGC, XFillRectangle, XSetForeground, XFlush, XDefaultColormap, XWindowAttributes, XGetWindowAttributes,
 };
 
 use crate::{surface::Surface, Color};
@@ -12,11 +12,11 @@ use crate::{surface::Surface, Color};
 pub struct X11Surface {
     display: *mut _XDisplay,
     gc: *mut _XGC,
-    window: u32,
+    window: c_ulong,
 }
 
 impl X11Surface {
-    pub fn new(window: u32) -> Self {
+    pub fn new(window: c_ulong) -> Self {
         unsafe {
             let display = XOpenDisplay(null());
 
@@ -41,7 +41,9 @@ impl Surface for X11Surface {
 
     fn clear(&self, color: crate::Color) {
         unsafe {
+            let attributes = get_window_attributes(self.display,self.window);
             XSetBackground(self.display, self.gc, get_color(self.display, color));
+            XFillRectangle(self.display, self.window, self.gc, 0,0,attributes.width as u32,attributes.height as u32);
         }
     }
 
@@ -54,7 +56,7 @@ impl Surface for X11Surface {
         match command {
             crate::Command::FillRectangle(x,y,width,height,radius,color) => {
                 unsafe {
-                    XSetForeground(self.display, self.gc, get_color(self.display,*color));
+                    XSetBackground(self.display, self.gc, get_color(self.display,*color));
                     XFillRectangle(self.display, self.window, self.gc, *x as i32,*y as i32,*width,*height);
                 }
             },
@@ -72,7 +74,7 @@ impl Surface for X11Surface {
 }
 
 fn get_color(display: *mut _XDisplay, color: Color) -> c_ulong {
-    let cmap = Colormap::default();
+    let cmap = unsafe { XDefaultColormap(display, 0) };
     let mut color = match color {
         Color::ARGB(a, r, g, b) => XColor {
             pixel: 0,
@@ -86,5 +88,12 @@ fn get_color(display: *mut _XDisplay, color: Color) -> c_ulong {
     unsafe {
         XAllocColor(display, cmap, &mut color);
         color.pixel as c_ulong
+    }
+}
+
+fn get_window_attributes(display: *mut _XDisplay,window: c_ulong) -> XWindowAttributes {
+    let mut attributes = unsafe { MaybeUninit::uninit().assume_init() };
+    unsafe {
+        XGetWindowAttributes(display,window , &mut attributes)
     }
 }
