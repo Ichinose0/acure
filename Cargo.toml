@@ -24,14 +24,14 @@ x11 = ["dep:x11","x11/xlib"]
 [dependencies]
 raw-window-handle = "0.6.0"
 log = "0.4"
-x11 = { version =  "2.21.0", optional = true }
+
 
 [target."cfg(windows)".dependencies.windows]
 version = "0.52.0"
 optional = true
 
 [target."cfg(unix)".dependencies]
-
+x11 = { version =  "2.21.0", optional = true }
 
 [dev-dependencies]
 winit = "0.29.3"

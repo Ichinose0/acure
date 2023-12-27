@@ -1,10 +1,13 @@
 use std::{
     ffi::c_ulong,
-    ptr::{null, null_mut}, mem::MaybeUninit,
+    mem::MaybeUninit,
+    ptr::{null, null_mut},
 };
 
 use x11::xlib::{
-    Colormap, XAllocColor, XColor, XCreateGC, XOpenDisplay, XSetBackground, _XDisplay, _XGC, XFillRectangle, XSetForeground, XFlush, XDefaultColormap, XWindowAttributes, XGetWindowAttributes,
+    Colormap, XAllocColor, XColor, XCreateGC, XDefaultColormap, XFillRectangle, XFlush,
+    XGetWindowAttributes, XOpenDisplay, XSetBackground, XSetForeground, XWindowAttributes,
+    _XDisplay, _XGC,
 };
 
 use crate::{surface::Surface, Color};
@@ -41,9 +44,17 @@ impl Surface for X11Surface {
 
     fn clear(&self, color: crate::Color) {
         unsafe {
-            let attributes = get_window_attributes(self.display,self.window);
-            XSetBackground(self.display, self.gc, get_color(self.display, color));
-            XFillRectangle(self.display, self.window, self.gc, 0,0,attributes.width as u32,attributes.height as u32);
+            let attributes = get_window_attributes(self.display, self.window);
+            XSetForeground(self.display, self.gc, get_color(self.display, color));
+            XFillRectangle(
+                self.display,
+                self.window,
+                self.gc,
+                0,
+                0,
+                attributes.width as u32,
+                attributes.height as u32,
+            );
         }
     }
 
@@ -54,15 +65,19 @@ impl Surface for X11Surface {
         layout: crate::LayoutMode,
     ) {
         match command {
-            crate::Command::FillRectangle(x,y,width,height,radius,color) => {
-                unsafe {
-                    XSetBackground(self.display, self.gc, get_color(self.display,*color));
-                    XFillRectangle(self.display, self.window, self.gc, *x as i32,*y as i32,*width,*height);
-                }
+            crate::Command::FillRectangle(x, y, width, height, radius, color) => unsafe {
+                XSetForeground(self.display, self.gc, get_color(self.display, *color));
+                XFillRectangle(
+                    self.display,
+                    self.window,
+                    self.gc,
+                    *x as i32,
+                    *y as i32,
+                    *width,
+                    *height,
+                );
             },
-            crate::Command::WriteString(_, _, _, _, _, _) => {
-
-            },
+            crate::Command::WriteString(_, _, _, _, _, _) => {}
         }
     }
 
@@ -78,9 +93,9 @@ fn get_color(display: *mut _XDisplay, color: Color) -> c_ulong {
     let mut color = match color {
         Color::ARGB(a, r, g, b) => XColor {
             pixel: 0,
-            red: r as u16,
-            green: g as u16,
-            blue: b as u16,
+            red: (r as u16) * 255,
+            green: (r as u16) * 255,
+            blue: (r as u16) * 255,
             flags: 0,
             pad: 0,
         },
@@ -91,9 +106,8 @@ fn get_color(display: *mut _XDisplay, color: Color) -> c_ulong {
     }
 }
 
-fn get_window_attributes(display: *mut _XDisplay,window: c_ulong) -> XWindowAttributes {
+fn get_window_attributes(display: *mut _XDisplay, window: c_ulong) -> XWindowAttributes {
     let mut attributes = unsafe { MaybeUninit::uninit().assume_init() };
-    unsafe {
-        XGetWindowAttributes(display,window , &mut attributes)
-    }
+    unsafe { XGetWindowAttributes(display, window, &mut attributes) }
+    attributes
 }
