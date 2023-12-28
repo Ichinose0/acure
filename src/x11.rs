@@ -12,7 +12,7 @@ use x11::{
     xlib::{
         Colormap, Visual, XAllocColor, XColor, XCreateGC, XDefaultColormap, XDefaultScreen,
         XDefaultVisual, XFillRectangle, XFlush, XGetWindowAttributes, XOpenDisplay, XSetBackground,
-        XSetForeground, XWindowAttributes, _XDisplay, _XGC,
+        XSetForeground, XWindowAttributes, _XDisplay, _XGC, XFreeColormap, XFreeColors,
     },
     xrender::XRenderColor,
 };
@@ -56,7 +56,7 @@ impl Drop for XftColor {
                 self.display,
                 XDefaultVisual(self.display, XDefaultScreen(self.display)),
                 XDefaultColormap(self.display, XDefaultScreen(self.display)),
-                self.inner,
+                &mut self.inner,
             );
         }
     }
@@ -136,7 +136,7 @@ impl Surface for X11Surface {
                 );
             },
             crate::Command::WriteString(x, y, width, height, color, text) => {
-                let fontname = CString::new("Yu gothic").unwrap();
+                let fontname = CString::new("Yu gothic-12").unwrap();
                 let font = unsafe {
                     XftFontOpenName(
                         self.display,
@@ -146,16 +146,9 @@ impl Surface for X11Surface {
                 };
                 unsafe {
                     let color = XftColor::alloc(self.display, *color);
-                    XftTextExtentsUtf8(
-                        self.display,
-                        font,
-                        text.as_ptr(),
-                        text.len() as i32,
-                        null_mut(),
-                    );
                     XftDrawStringUtf8(
                         self.xft,
-                        color.inner,
+                        &color.inner,
                         font,
                         *x as i32,
                         (*y as i32) + (*font).ascent,
@@ -188,6 +181,7 @@ fn get_color(display: *mut _XDisplay, color: Color) -> c_ulong {
     };
     unsafe {
         XAllocColor(display, cmap, &mut color);
+        XFreeColormap(display, cmap);
         color.pixel as c_ulong
     }
 }
