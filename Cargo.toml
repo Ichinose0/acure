@@ -19,7 +19,7 @@ d2d1 = ["windows/Foundation_Numerics",
     "windows/Win32_System_SystemInformation",
     "windows/Win32_UI_Animation",
     "windows/Win32_UI_WindowsAndMessaging",]
-x11 = ["dep:x11","x11/xlib"]
+x11 = ["dep:x11","x11/xlib","x11/xft"]
 
 [dependencies]
 raw-window-handle = "0.6.0"

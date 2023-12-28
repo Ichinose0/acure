@@ -1,20 +1,71 @@
 use std::{
-    ffi::c_ulong,
+    ffi::{c_ulong, CString},
     mem::MaybeUninit,
     ptr::{null, null_mut},
 };
 
-use x11::xlib::{
-    Colormap, XAllocColor, XColor, XCreateGC, XDefaultColormap, XFillRectangle, XFlush,
-    XGetWindowAttributes, XOpenDisplay, XSetBackground, XSetForeground, XWindowAttributes,
-    _XDisplay, _XGC,
+use x11::{
+    xft::{
+        XftColorAllocValue, XftColorFree, XftDraw, XftDrawCreate, XftDrawStringUtf8,
+        XftFontOpenName, XftTextExtentsUtf8,
+    },
+    xlib::{
+        Colormap, Visual, XAllocColor, XColor, XCreateGC, XDefaultColormap, XDefaultScreen,
+        XDefaultVisual, XFillRectangle, XFlush, XGetWindowAttributes, XOpenDisplay, XSetBackground,
+        XSetForeground, XWindowAttributes, _XDisplay, _XGC,
+    },
+    xrender::XRenderColor,
 };
 
 use crate::{surface::Surface, Color};
 
+pub struct XftColor {
+    display: *mut _XDisplay,
+    inner: x11::xft::XftColor,
+}
+
+impl XftColor {
+    pub fn alloc(display: *mut _XDisplay, color: Color) -> Self {
+        unsafe {
+            let mut inner = unsafe { MaybeUninit::uninit().assume_init() };
+            let color = match color {
+                Color::ARGB(a, r, g, b) => XRenderColor {
+                    red: (r as u16) * 255,
+                    green: (g as u16) * 255,
+                    blue: (b as u16) * 255,
+                    alpha: (a as u16) * 255,
+                },
+            };
+
+            XftColorAllocValue(
+                display,
+                XDefaultVisual(display, XDefaultScreen(display)),
+                XDefaultColormap(display, XDefaultScreen(display)),
+                &color,
+                &mut inner,
+            );
+            Self { display, inner }
+        }
+    }
+}
+
+impl Drop for XftColor {
+    fn drop(&mut self) {
+        unsafe {
+            XftColorFree(
+                self.display,
+                XDefaultVisual(self.display, XDefaultScreen(self.display)),
+                XDefaultColormap(self.display, XDefaultScreen(self.display)),
+                self.inner,
+            );
+        }
+    }
+}
+
 pub struct X11Surface {
     display: *mut _XDisplay,
     gc: *mut _XGC,
+    xft: *mut XftDraw,
     window: c_ulong,
 }
 
@@ -27,10 +78,17 @@ impl X11Surface {
                 panic!("XOpenDisplay failed");
             }
             let gc = XCreateGC(display, window, 0, null_mut());
+            let xft = XftDrawCreate(
+                display,
+                window,
+                XDefaultVisual(display, XDefaultScreen(display)),
+                XDefaultColormap(display, XDefaultScreen(display)),
+            );
 
             Self {
                 display,
                 gc,
+                xft,
                 window,
             }
         }
@@ -77,7 +135,35 @@ impl Surface for X11Surface {
                     *height,
                 );
             },
-            crate::Command::WriteString(_, _, _, _, _, _) => {}
+            crate::Command::WriteString(x, y, width, height, color, text) => {
+                let fontname = CString::new("Yu gothic").unwrap();
+                let font = unsafe {
+                    XftFontOpenName(
+                        self.display,
+                        XDefaultScreen(self.display),
+                        fontname.as_ptr(),
+                    )
+                };
+                unsafe {
+                    let color = XftColor::alloc(self.display, *color);
+                    XftTextExtentsUtf8(
+                        self.display,
+                        font,
+                        text.as_ptr(),
+                        text.len() as i32,
+                        null_mut(),
+                    );
+                    XftDrawStringUtf8(
+                        self.xft,
+                        color.inner,
+                        font,
+                        *x as i32,
+                        (*y as i32) + (*font).ascent,
+                        text.as_ptr(),
+                        text.len() as i32,
+                    );
+                }
+            }
         }
     }
 
