@@ -3,9 +3,10 @@ use std::{
     ptr::{null, null_mut},
 };
 
-use egl::{Context, Display, Instance, Static, Surface};
+use egl::{Context, Display, Instance, Static, Surface, Config};
 use std::ffi::c_ulong;
-use x11::xlib::{XOpenDisplay, XPending, _XDisplay};
+use x11::xlib::{XOpenDisplay, XPending, _XDisplay, XGetWindowAttributes, XWindowAttributes};
+use std::mem::MaybeUninit;
 
 pub use khronos_egl as egl;
 
@@ -42,6 +43,11 @@ impl Egl {
             instance
                 .choose_config(display, &attr, &mut configs)
                 .unwrap();
+
+            if configs.len() != 1 {
+                panic!("Can't choose context config");
+            }
+
             let surface = instance
                 .create_window_surface(
                     display,
@@ -130,7 +136,7 @@ impl X11EglSurface {
     }
 }
 
-impl Surface for X11EglSurface {
+impl crate::Surface for X11EglSurface {
     fn surface_resize(&mut self, width: u32, height: u32) {}
 
     fn begin(&mut self) {
