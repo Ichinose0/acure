@@ -11,8 +11,8 @@ use x11::{
     },
     xlib::{
         Colormap, Visual, XAllocColor, XColor, XCreateGC, XDefaultColormap, XDefaultScreen,
-        XDefaultVisual, XFillRectangle, XFlush, XGetWindowAttributes, XOpenDisplay, XSetBackground,
-        XSetForeground, XWindowAttributes, _XDisplay, _XGC, XFreeColormap, XFreeColors,
+        XDefaultVisual, XFillRectangle, XFlush, XFreeColormap, XFreeColors, XGetWindowAttributes,
+        XOpenDisplay, XSetBackground, XSetForeground, XWindowAttributes, _XDisplay, _XGC,
     },
     xrender::XRenderColor,
 };

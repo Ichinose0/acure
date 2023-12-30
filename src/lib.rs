@@ -7,7 +7,11 @@ pub mod surface;
 #[cfg(feature = "d2d1")]
 pub mod d2d1;
 #[cfg(target_os = "linux")]
+#[cfg(feature = "x11")]
 pub mod x11;
+#[cfg(target_os = "linux")]
+#[cfg(feature = "x11_egl")]
+pub mod x11egl;
 
 use std::sync::Mutex;
 
