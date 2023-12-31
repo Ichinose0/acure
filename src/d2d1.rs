@@ -12,10 +12,12 @@ use crate::surface::Surface;
 use crate::{AlignMode, Color, Command, LayoutMode};
 
 impl Surface for D2D1Surface {
+    #[inline]
     fn surface_resize(&mut self, width: u32, height: u32) {
         self.resize_swapchain_bitmap().unwrap();
     }
 
+    #[inline]
     fn begin(&mut self) {
         if self.target.is_none() {
             let device = create_device().unwrap();
@@ -37,6 +39,7 @@ impl Surface for D2D1Surface {
         unsafe { target.BeginDraw() };
     }
 
+    #[inline]
     fn end(&mut self) {
         let target = self.target.as_ref().unwrap();
         unsafe {
@@ -57,6 +60,7 @@ impl Surface for D2D1Surface {
         }
     }
 
+    #[inline]
     fn command(&self, command: &Command, align: AlignMode, layout: LayoutMode) {
         let target = self.target.as_ref().unwrap();
         let clock = self.clock.as_ref().unwrap();
@@ -164,6 +168,7 @@ impl Surface for D2D1Surface {
         }
     }
 
+    #[inline]
     fn clear(&self, color: Color) {
         let target = self.target.as_ref().unwrap();
         let color = self.d2d1_color(color);
@@ -216,6 +221,7 @@ impl Angles {
 }
 
 impl D2D1Surface {
+    #[inline]
     pub fn new(hwnd: isize) -> Self {
         let factory = create_factory().unwrap();
         let dxfactory: IDXGIFactory2 = unsafe { CreateDXGIFactory1().unwrap() };
@@ -264,6 +270,7 @@ impl D2D1Surface {
         }
     }
 
+    #[inline]
     fn d2d1_color(&self, color: Color) -> D2D1_COLOR_F {
         match color {
             Color::ARGB(a, r, g, b) => D2D1_COLOR_F {
@@ -275,26 +282,31 @@ impl D2D1Surface {
         }
     }
 
+    #[inline]
     pub fn resize(&mut self) {
         self.resize_swapchain_bitmap().unwrap();
     }
 
+    #[inline]
     fn release_device(&mut self) {
         self.target = None;
         self.swapchain = None;
         self.release_device_resources();
     }
 
+    #[inline]
     fn release_device_resources(&mut self) {
         self.brush = None;
         self.clock = None;
         self.shadow = None;
     }
 
+    #[inline]
     fn present(&self, sync: u32, flags: u32) -> Result<()> {
         unsafe { self.swapchain.as_ref().unwrap().Present(sync, flags).ok() }
     }
 
+    #[inline]
     fn draw_clock(&self) -> Result<()> {
         let target = self.target.as_ref().unwrap();
         let brush = self.brush.as_ref().unwrap();
@@ -309,6 +321,7 @@ impl D2D1Surface {
         Ok(())
     }
 
+    #[inline]
     fn create_device_size_resources(&mut self) -> Result<()> {
         let target = self.target.as_ref().unwrap();
         let clock = self.create_clock(target)?;
@@ -318,6 +331,7 @@ impl D2D1Surface {
         Ok(())
     }
 
+    #[inline]
     fn create_clock(&self, target: &ID2D1DeviceContext) -> Result<ID2D1Bitmap1> {
         let size_f = unsafe { target.GetSize() };
 
@@ -340,6 +354,7 @@ impl D2D1Surface {
         unsafe { target.CreateBitmap2(size_u, None, 0, &properties) }
     }
 
+    #[inline]
     fn resize_swapchain_bitmap(&mut self) -> Result<()> {
         if let Some(target) = &self.target {
             let swapchain = self.swapchain.as_ref().unwrap();
@@ -369,6 +384,7 @@ fn get_time(frequency: i64) -> Result<f64> {
     }
 }
 
+#[inline]
 fn create_brush(target: &ID2D1DeviceContext) -> Result<ID2D1SolidColorBrush> {
     let color = D2D1_COLOR_F {
         r: 0.92,

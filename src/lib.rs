@@ -70,7 +70,8 @@ pub struct Acure {
 }
 
 impl Acure {
-    pub fn new() -> Self {
+    #[inline]
+    pub const fn new() -> Self {
         Self {
             buffer: vec![],
             bgr: Color::ARGB(0, 0, 0, 0),
@@ -81,24 +82,29 @@ impl Acure {
         }
     }
 
+    #[inline]
     pub fn set_background_color(&mut self, color: Color) {
         self.bgr = color;
     }
 
+    #[inline]
     pub fn set_align_mode(&mut self, mode: AlignMode) {
         self.align = mode;
     }
 
+    #[inline]
     pub fn set_layout_mode(&mut self, mode: LayoutMode) {
         self.layout = mode;
     }
 
+    #[inline]
     pub fn clear(&mut self) {
         if !self.buffer.is_empty() {
             self.buffer.clear();
         }
     }
 
+    #[inline]
     pub fn begin<T>(&mut self, surface: &mut T)
     where
         T: Surface,
@@ -107,10 +113,12 @@ impl Acure {
         surface.begin();
     }
 
+    #[inline]
     pub fn push(&mut self, command: Command) {
         self.buffer.push(command);
     }
 
+    #[inline]
     pub fn write<T>(&mut self, surface: &mut T) -> AeResult<()>
     where
         T: Surface,
@@ -129,6 +137,7 @@ impl Acure {
         return Err(AcureResult::UnauthorizedOperation);
     }
 
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.buffer.is_empty()
     }

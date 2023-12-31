@@ -22,6 +22,7 @@ pub struct Egl {
 }
 
 impl Egl {
+    #[inline]
     pub fn init(window: c_ulong, x_display: *mut _XDisplay) -> Self {
         let instance = egl::Instance::new(egl::Static);
         unsafe {
@@ -79,6 +80,7 @@ impl Egl {
         }
     }
 
+    #[inline]
     pub fn make_current(&self) {
         self.instance.make_current(
             self.display,
@@ -88,16 +90,19 @@ impl Egl {
         );
     }
 
+    #[inline]
     pub fn swap_intervals(&self, interval: bool) {
         self.instance.swap_interval(self.display, interval as i32);
     }
 
+    #[inline]
     pub fn swap_buffers(&self) {
         self.instance
             .swap_buffers(self.display, self.surface)
             .unwrap();
     }
 
+    #[inline]
     pub fn get_proc_address(&self, procname: &str) -> *const c_void {
         self.instance.get_proc_address(procname).unwrap() as *const c_void
     }
@@ -125,6 +130,7 @@ pub struct X11EglSurface {
 }
 
 impl X11EglSurface {
+    #[inline]
     pub fn new(window: c_ulong) -> Self {
         unsafe {
             let display = XOpenDisplay(null());
@@ -176,6 +182,7 @@ impl X11EglSurface {
     }
 }
 
+#[inline]
 pub fn compile_shader(shader_type: u32, source: &str) -> u32 {
     let mut result = 0;
 
@@ -200,14 +207,17 @@ pub fn compile_shader(shader_type: u32, source: &str) -> u32 {
 }
 
 impl crate::Surface for X11EglSurface {
+    #[inline]
     fn surface_resize(&mut self, width: u32, height: u32) {}
 
+    #[inline]
     fn begin(&mut self) {
         unsafe {
             XPending(self.display);
         }
     }
 
+    #[inline]
     fn clear(&self, color: crate::Color) {
         unsafe {
             match color {
@@ -225,6 +235,7 @@ impl crate::Surface for X11EglSurface {
         }
     }
 
+    #[inline]
     fn command(
         &self,
         command: &crate::Command,
@@ -273,11 +284,13 @@ impl crate::Surface for X11EglSurface {
         }
     }
 
+    #[inline]
     fn end(&mut self) {
         self.egl.swap_buffers();
     }
 }
 
+#[inline]
 fn get_window_attributes(display: *mut _XDisplay, window: c_ulong) -> XWindowAttributes {
     let mut attributes = unsafe { MaybeUninit::uninit().assume_init() };
     unsafe { XGetWindowAttributes(display, window, &mut attributes) };
