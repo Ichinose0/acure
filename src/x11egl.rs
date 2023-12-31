@@ -124,8 +124,13 @@ pub struct X11EglSurface {
     display: *mut _XDisplay,
     window: c_ulong,
     egl: Egl,
-    width: u32,
-    height: u32,
+    left: f32,
+    right: f32,
+    bottom: f32,
+    top: f32,
+    near_val: f32,
+    far_val: f32,
+    projection: Vec<f32>,
     vertex: u32,
     fragment: u32,
     program: u32,
@@ -172,15 +177,43 @@ impl X11EglSurface {
 
             gl::UseProgram(program);
 
-            gl::MatrixMode(gl::PROJECTION);
-            gl::LoadIdentity();
+            let left = 0.0;
+            let right = 0.0;
+            let bottom = 0.0;
+            let top = 0.0;
+            let near_val = -1.0;
+            let far_val = 1.0;
+
+            let projection = vec![
+                2.0 / (right - left),
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                2.0 / (top - bottom),
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                -2.0 / (far_val - near_val),
+                0.0,
+                -(right + left) / (right - left),
+                -(top + bottom) / (top - bottom),
+                -(far_val + near_val) / (far_val - near_val),
+                1.0,
+            ];
 
             Self {
                 display,
                 window,
                 egl,
-                width: 0,
-                height: 0,
+                left,
+                right,
+                bottom,
+                top,
+                near_val,
+                far_val,
+                projection,
                 vertex,
                 fragment,
                 program,
@@ -216,10 +249,19 @@ pub fn compile_shader(shader_type: u32, source: &str) -> u32 {
 impl crate::Surface for X11EglSurface {
     #[inline]
     fn surface_resize(&mut self, width: u32, height: u32) {
-        self.width = width;
-        self.height = height;
+        self.right = width as f32;
+        self.top = height as f32;
         unsafe {
-            gl::Viewport(0,0,width as i32,height as i32);
+            gl::Viewport(0, 0, width as i32, height as i32);
+            self.projection[0] = 2.0 / (self.right - self.left);
+            self.projection[5] = 2.0 / (self.top - self.bottom);
+            self.projection[9] = -2.0 / (self.far_val - self.near_val);
+            self.projection[11] = -(self.right + self.left) / (self.right - self.left);
+            self.projection[12] = -(self.top + self.bottom) / (self.top - self.bottom);
+            self.projection[13] = -(self.far_val + self.near_val) / (self.far_val - self.near_val);
+
+            let uniform = gl::GetUniformLocation(self.program, CString::new("projectionMatrix").unwrap().as_ptr());
+            gl::UniformMatrix4fv(uniform,1,gl::FALSE,self.projection.as_ptr());
         }
     }
 
