@@ -3,10 +3,10 @@ use std::{
     ptr::{null, null_mut},
 };
 
-use egl::{Context, Display, Instance, Static, Surface, Config};
+use egl::{Config, Context, Display, Instance, Static, Surface};
 use std::ffi::c_ulong;
-use x11::xlib::{XOpenDisplay, XPending, _XDisplay, XGetWindowAttributes, XWindowAttributes};
 use std::mem::MaybeUninit;
+use x11::xlib::{XGetWindowAttributes, XOpenDisplay, XPending, XWindowAttributes, _XDisplay};
 
 pub use khronos_egl as egl;
 
@@ -33,12 +33,22 @@ impl Egl {
             let attr = vec![
                 egl::BUFFER_SIZE,
                 16,
+                egl::RED_SIZE,
+                8,
+                egl::GREEN_SIZE,
+                8,
+                egl::BLUE_SIZE,
+                8,
+                egl::ALPHA_SIZE,
+                8,
+                egl::SURFACE_TYPE,
+                egl::WINDOW_BIT,
                 egl::RENDERABLE_TYPE,
                 egl::OPENGL_ES2_BIT,
                 egl::NONE,
             ];
 
-            let mut configs = vec![];
+            let mut configs = Vec::with_capacity(1);
 
             instance
                 .choose_config(display, &attr, &mut configs)
@@ -49,14 +59,9 @@ impl Egl {
             }
 
             let surface = instance
-                .create_window_surface(
-                    display,
-                    configs[0],
-                    window as egl::NativeWindowType,
-                    Some(&attr),
-                )
+                .create_window_surface(display, configs[0], window as egl::NativeWindowType, None)
                 .unwrap();
-            let ctx_attr = vec![egl::CONTEXT_CLIENT_TYPE, 2, egl::NONE];
+            let ctx_attr = vec![egl::CONTEXT_CLIENT_VERSION, 2, egl::NONE];
             let context = instance
                 .create_context(display, configs[0], None, &ctx_attr)
                 .unwrap();
@@ -89,8 +94,8 @@ impl Egl {
             .unwrap();
     }
 
-    pub fn get_proc_address(&self, procname: &str) -> fn() {
-        self.instance.get_proc_address(procname).unwrap()
+    pub fn get_proc_address(&self, procname: &str) -> *const c_void {
+        self.instance.get_proc_address(procname).unwrap() as *const c_void
     }
 }
 
@@ -125,7 +130,7 @@ impl X11EglSurface {
             egl.swap_intervals(true);
             egl.make_current();
 
-            gl::load_with(|s| egl.get_proc_address(s) as *const c_void);
+            gl::load_with(|s| egl.get_proc_address(s));
 
             Self {
                 display,
@@ -147,7 +152,16 @@ impl crate::Surface for X11EglSurface {
 
     fn clear(&self, color: crate::Color) {
         unsafe {
-            gl::ClearColor(0.25, 0.25, 0.5, 1.0);
+            match color {
+                crate::Color::ARGB(a, r, g, b) => {
+                    gl::ClearColor(
+                        (r as f32) / 255.0,
+                        (g as f32) / 255.0,
+                        (b as f32) / 255.0,
+                        (a as f32) / 255.0,
+                    );
+                }
+            }
         }
     }
 
