@@ -17,10 +17,7 @@ pub struct Egl {
     instance: Instance<Static>,
     display: Display,
     surface: Surface,
-    context: Context,
-    vertex: u32,
-    fragment: u32,
-    program: u32
+    context: Context
 }
 
 impl Egl {
@@ -72,30 +69,13 @@ impl Egl {
                 .create_context(display, configs[0], None, &ctx_attr)
                 .unwrap();
 
-            let vertex = gl::CreateShader(gl::VERTEX_SHADER);
-            let fragment = gl::CreateShader(gl::FRAGMENT_SHADER);
-
-            gl::ShaderSource(vertex,1,&CString::new(VERTEX).unwrap().as_ptr(),null());
-            gl::CompileShader(vertex);
-
-            gl::ShaderSource(fragment,1,&CString::new(FRAGMENT).unwrap().as_ptr(),null());
-            gl::CompileShader(fragment);
-
-            let program = gl::CreateProgram();
-
-            gl::AttachShader(program,vertex);
-            gl::AttachShader(program,fragment);
-            gl::LinkProgram(program);
-            gl::UseProgram(program);
+            
 
             Self {
                 instance,
                 display,
                 surface,
                 context,
-                vertex,
-                fragment,
-                program
             }
         }
     }
@@ -140,6 +120,9 @@ pub struct X11EglSurface {
     display: *mut _XDisplay,
     window: c_ulong,
     egl: Egl,
+    vertex: u32,
+    fragment: u32,
+    program: u32
 }
 
 impl X11EglSurface {
@@ -157,10 +140,29 @@ impl X11EglSurface {
 
             gl::load_with(|s| egl.get_proc_address(s));
 
+            let vertex = gl::CreateShader(gl::VERTEX_SHADER);
+            let fragment = gl::CreateShader(gl::FRAGMENT_SHADER);
+
+            gl::ShaderSource(vertex,1,&CString::new(VERTEX).unwrap().as_ptr(),null());
+            gl::CompileShader(vertex);
+
+            gl::ShaderSource(fragment,1,&CString::new(FRAGMENT).unwrap().as_ptr(),null());
+            gl::CompileShader(fragment);
+
+            let program = gl::CreateProgram();
+
+            gl::AttachShader(program,vertex);
+            gl::AttachShader(program,fragment);
+            gl::LinkProgram(program);
+            gl::UseProgram(program);
+
             Self {
                 display,
                 window,
                 egl,
+                vertex,
+                fragment,
+                program
             }
         }
     }
@@ -187,6 +189,8 @@ impl crate::Surface for X11EglSurface {
                     );
                 }
             }
+            gl::Clear(gl::COLOR_BUFFER_BIT|gl::DEPTH_BUFFER_BIT);
+            gl::ClearDepth(1.0);
         }
     }
 
@@ -196,28 +200,46 @@ impl crate::Surface for X11EglSurface {
         align: crate::AlignMode,
         layout: crate::LayoutMode,
     ) {
-        unsafe {
-            let position = vec![
-                0.0,0.5,
-                0.4,-0.25,
-                -0.4,0.25
-            ];
-            let att_location = gl::GetAttribLocation(self.egl.program,CString::new("position").unwrap().as_ptr());
-            gl::EnableVertexAttribArray(att_location as u32);
-            gl::VertexAttribPointer(att_location as u32,2,gl::FLOAT,0,0,position.as_ptr() as *const c_void);
-            gl::DrawArrays(gl::TRIANGLES,0,3);
-        }
+        
         match command {
-            crate::Command::FillRectangle(x, y, width, height, radius, color) => {}
+            crate::Command::FillRectangle(x, y, width, height, radius, color) => {
+                unsafe {
+                    let position = vec![
+                        -0.5,0.5,
+                        -0.5,-0.5,
+                        0.5,-0.5,
+                        0.5,0.5
+                    ];
+                    let vert_color;
+                    match color {
+                        crate::Color::ARGB(a,r,g,b) => {
+                            let a = (a as f32)/255.0;
+                            let r = (r as f32)/255.0;
+                            let g = (g as f32)/255.0;
+                            let b = (b as f32)/255.0;
+                            vert_color = vec![
+                                r,g,b,a,
+                                r,g,b,a,
+                                r,g,b,a,
+                                r,g,b,a
+                            ];
+                        }
+                    }
+                    let att_location = gl::GetAttribLocation(self.program,CString::new("position").unwrap().as_ptr());
+                    let color_location = gl::GetAttribLocation(self.program,CString::new("color").unwrap().as_ptr());
+                    gl::EnableVertexAttribArray(att_location as u32);
+                    gl::EnableVertexAttribArray(color_location as u32);
+                    gl::VertexAttribPointer(att_location as u32,2,gl::FLOAT,0,0,position.as_ptr() as *const c_void);
+                    gl::VertexAttribPointer(color_location as u32,4,gl::FLOAT,0,0,vert_color.as_ptr() as *const c_void);
+                    gl::DrawArrays(gl::TRIANGLE_FAN,0,4);
+                }
+            }
 
             crate::Command::WriteString(x, y, width, height, color, text) => {}
         }
     }
 
     fn end(&mut self) {
-        unsafe {
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-        }
         self.egl.swap_buffers();
     }
 }
