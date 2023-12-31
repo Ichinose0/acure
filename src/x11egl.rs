@@ -3,7 +3,7 @@ const VERTEX: &'static str = include_str!("shader/shader.vert");
 
 use std::{
     os::raw::c_void,
-    ptr::{null, null_mut}, ffi::CString,
+    ptr::{null, null_mut}, ffi::{CString, CStr},
 };
 
 use egl::{Config, Context, Display, Instance, Static, Surface};
@@ -154,6 +154,20 @@ impl X11EglSurface {
             gl::AttachShader(program,vertex);
             gl::AttachShader(program,fragment);
             gl::LinkProgram(program);
+
+            let mut result = 0;
+            gl::GetProgramiv(program, gl::LINK_STATUS, &mut result);
+
+            if (result as u8) == gl::FALSE {
+                let mut length = 0;
+                gl::GetProgramiv(program,gl::INFO_LOG_LENGTH,&mut length);
+                let mut log = Vec::with_capacity(length as usize);
+                gl::GetProgramInfoLog(program,length,null_mut(),log.as_mut_ptr());
+                let log = CStr::from_ptr(log.as_ptr());
+                let log_str = log.to_str().unwrap();
+                panic!("{:#?}",log_str);
+            }
+
             gl::UseProgram(program);
 
             Self {
@@ -204,19 +218,19 @@ impl crate::Surface for X11EglSurface {
         match command {
             crate::Command::FillRectangle(x, y, width, height, radius, color) => {
                 unsafe {
-                    let position = vec![
+                    let position: Vec<f32> = vec![
                         -0.5,0.5,
                         -0.5,-0.5,
                         0.5,-0.5,
                         0.5,0.5
                     ];
-                    let vert_color;
+                    let vert_color: Vec<f32>;
                     match color {
                         crate::Color::ARGB(a,r,g,b) => {
-                            let a = (a as f32)/255.0;
-                            let r = (r as f32)/255.0;
-                            let g = (g as f32)/255.0;
-                            let b = (b as f32)/255.0;
+                            let a = (*a as f32)/255.0;
+                            let r = (*r as f32)/255.0;
+                            let g = (*g as f32)/255.0;
+                            let b = (*b as f32)/255.0;
                             vert_color = vec![
                                 r,g,b,a,
                                 r,g,b,a,
