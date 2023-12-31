@@ -11,8 +11,8 @@ use x11::{
     },
     xlib::{
         Colormap, Visual, XAllocColor, XColor, XCreateGC, XDefaultColormap, XDefaultScreen,
-        XDefaultVisual, XFillRectangle, XFlush, XGetWindowAttributes, XOpenDisplay, XSetBackground,
-        XSetForeground, XWindowAttributes, _XDisplay, _XGC, XFreeColormap, XFreeColors,
+        XDefaultVisual, XFillRectangle, XFlush, XFreeColormap, XFreeColors, XGetWindowAttributes,
+        XOpenDisplay, XPending, XSetBackground, XSetForeground, XWindowAttributes, _XDisplay, _XGC,
     },
     xrender::XRenderColor,
 };
@@ -98,7 +98,11 @@ impl X11Surface {
 impl Surface for X11Surface {
     fn surface_resize(&mut self, width: u32, height: u32) {}
 
-    fn begin(&mut self) {}
+    fn begin(&mut self) {
+        unsafe {
+            XPending(self.display);
+        }
+    }
 
     fn clear(&self, color: crate::Color) {
         unsafe {
