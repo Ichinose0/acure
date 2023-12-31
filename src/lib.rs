@@ -13,6 +13,10 @@ pub mod x11;
 #[cfg(feature = "x11_egl")]
 pub mod x11egl;
 
+#[cfg(target_os = "windows")]
+#[cfg(feature = "wgl")]
+pub mod wgl;
+
 #[cfg(feature = "gl")]
 pub(crate) mod gl;
 

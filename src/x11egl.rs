@@ -12,7 +12,7 @@ use std::ffi::c_ulong;
 use std::mem::MaybeUninit;
 use x11::xlib::{XGetWindowAttributes, XOpenDisplay, XPending, XWindowAttributes, _XDisplay};
 
-use crate::gl::{compile_shader,create_program};
+use crate::gl::{compile_shader, create_program};
 
 pub use khronos_egl as egl;
 
@@ -157,7 +157,7 @@ impl X11EglSurface {
             let vertex = compile_shader(gl::VERTEX_SHADER, VERTEX);
             let fragment = compile_shader(gl::FRAGMENT_SHADER, FRAGMENT);
 
-            let program = create_program(&[vertex,fragment]);
+            let program = create_program(&[vertex, fragment]);
             gl::UseProgram(program);
 
             let left = 0.0;
@@ -205,8 +205,6 @@ impl X11EglSurface {
     }
 }
 
-
-
 impl crate::Surface for X11EglSurface {
     #[inline]
     fn surface_resize(&mut self, width: u32, height: u32) {
@@ -221,8 +219,11 @@ impl crate::Surface for X11EglSurface {
             self.projection[12] = -(self.top + self.bottom) / (self.top - self.bottom);
             self.projection[13] = -(self.far_val + self.near_val) / (self.far_val - self.near_val);
 
-            let uniform = gl::GetUniformLocation(self.program, CString::new("projectionMatrix").unwrap().as_ptr());
-            gl::UniformMatrix4fv(uniform,1,gl::FALSE,self.projection.as_ptr());
+            let uniform = gl::GetUniformLocation(
+                self.program,
+                CString::new("projectionMatrix").unwrap().as_ptr(),
+            );
+            gl::UniformMatrix4fv(uniform, 1, gl::FALSE, self.projection.as_ptr());
         }
     }
 

@@ -1,4 +1,7 @@
-use std::{ffi::{CStr, CString}, ptr::{null_mut, null}};
+use std::{
+    ffi::{CStr, CString},
+    ptr::{null, null_mut},
+};
 
 #[inline]
 pub fn compile_shader(shader_type: u32, source: &str) -> u32 {
@@ -31,7 +34,7 @@ pub fn create_program(shaders: &[u32]) -> u32 {
         for i in shaders {
             gl::AttachShader(program, *i);
         }
-        
+
         gl::LinkProgram(program);
 
         let mut result = 0;
