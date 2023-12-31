@@ -12,6 +12,8 @@ use std::ffi::c_ulong;
 use std::mem::MaybeUninit;
 use x11::xlib::{XGetWindowAttributes, XOpenDisplay, XPending, XWindowAttributes, _XDisplay};
 
+use crate::gl::{compile_shader,create_program};
+
 pub use khronos_egl as egl;
 
 pub struct Egl {
@@ -155,26 +157,7 @@ impl X11EglSurface {
             let vertex = compile_shader(gl::VERTEX_SHADER, VERTEX);
             let fragment = compile_shader(gl::FRAGMENT_SHADER, FRAGMENT);
 
-            let mut result = 0;
-
-            let program = gl::CreateProgram();
-
-            gl::AttachShader(program, vertex);
-            gl::AttachShader(program, fragment);
-            gl::LinkProgram(program);
-
-            gl::GetProgramiv(program, gl::LINK_STATUS, &mut result);
-
-            if (result as u8) == gl::FALSE {
-                let mut length = 0;
-                gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut length);
-                let mut log = Vec::with_capacity(length as usize);
-                gl::GetProgramInfoLog(program, length, null_mut(), log.as_mut_ptr());
-                let log = CStr::from_ptr(log.as_ptr());
-                let log_str = log.to_str().unwrap();
-                panic!("{:#?}", log_str);
-            }
-
+            let program = create_program(&[vertex,fragment]);
             gl::UseProgram(program);
 
             let left = 0.0;
@@ -222,29 +205,7 @@ impl X11EglSurface {
     }
 }
 
-#[inline]
-pub fn compile_shader(shader_type: u32, source: &str) -> u32 {
-    let mut result = 0;
 
-    unsafe {
-        let shader = gl::CreateShader(shader_type);
-        gl::ShaderSource(shader, 1, &CString::new(source).unwrap().as_ptr(), null());
-        gl::CompileShader(shader);
-
-        gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut result);
-        if (result as u8) == gl::FALSE {
-            let mut length = 0;
-            gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut length);
-            let mut log = Vec::with_capacity(length as usize);
-            gl::GetShaderInfoLog(shader, length, null_mut(), log.as_mut_ptr());
-            let log = CStr::from_ptr(log.as_ptr());
-            let log_str = log.to_str().unwrap();
-            panic!("{:#?}", log_str);
-        }
-
-        shader
-    }
-}
 
 impl crate::Surface for X11EglSurface {
     #[inline]

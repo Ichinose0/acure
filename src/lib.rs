@@ -13,6 +13,9 @@ pub mod x11;
 #[cfg(feature = "x11_egl")]
 pub mod x11egl;
 
+#[cfg(feature = "gl")]
+pub(crate) mod gl;
+
 use std::sync::Mutex;
 
 use surface::Surface;
