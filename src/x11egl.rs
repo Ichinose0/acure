@@ -1,6 +1,9 @@
+const FRAGMENT: &'static str = include_str!("shader/shader.frag");
+const VERTEX: &'static str = include_str!("shader/shader.vert");
+
 use std::{
     os::raw::c_void,
-    ptr::{null, null_mut},
+    ptr::{null, null_mut}, ffi::CString,
 };
 
 use egl::{Config, Context, Display, Instance, Static, Surface};
@@ -15,6 +18,9 @@ pub struct Egl {
     display: Display,
     surface: Surface,
     context: Context,
+    vertex: u32,
+    fragment: u32,
+    program: u32
 }
 
 impl Egl {
@@ -66,11 +72,30 @@ impl Egl {
                 .create_context(display, configs[0], None, &ctx_attr)
                 .unwrap();
 
+            let vertex = gl::CreateShader(gl::VERTEX_SHADER);
+            let fragment = gl::CreateShader(gl::FRAGMENT_SHADER);
+
+            gl::ShaderSource(vertex,1,&CString::new(VERTEX).unwrap().as_ptr(),null());
+            gl::CompileShader(vertex);
+
+            gl::ShaderSource(fragment,1,&CString::new(FRAGMENT).unwrap().as_ptr(),null());
+            gl::CompileShader(fragment);
+
+            let program = gl::CreateProgram();
+
+            gl::AttachShader(program,vertex);
+            gl::AttachShader(program,fragment);
+            gl::LinkProgram(program);
+            gl::UseProgram(program);
+
             Self {
                 instance,
                 display,
                 surface,
                 context,
+                vertex,
+                fragment,
+                program
             }
         }
     }
@@ -171,6 +196,17 @@ impl crate::Surface for X11EglSurface {
         align: crate::AlignMode,
         layout: crate::LayoutMode,
     ) {
+        unsafe {
+            let position = vec![
+                0.0,0.5,
+                0.4,-0.25,
+                -0.4,0.25
+            ];
+            let att_location = gl::GetAttribLocation(self.egl.program,CString::new("position").unwrap().as_ptr());
+            gl::EnableVertexAttribArray(att_location as u32);
+            gl::VertexAttribPointer(att_location as u32,2,gl::FLOAT,0,0,position.as_ptr() as *const c_void);
+            gl::DrawArrays(gl::TRIANGLES,0,3);
+        }
         match command {
             crate::Command::FillRectangle(x, y, width, height, radius, color) => {}
 
