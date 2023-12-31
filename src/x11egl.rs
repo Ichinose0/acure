@@ -124,6 +124,8 @@ pub struct X11EglSurface {
     display: *mut _XDisplay,
     window: c_ulong,
     egl: Egl,
+    width: u32,
+    height: u32,
     vertex: u32,
     fragment: u32,
     program: u32,
@@ -170,10 +172,15 @@ impl X11EglSurface {
 
             gl::UseProgram(program);
 
+            gl::MatrixMode(gl::PROJECTION);
+            gl::LoadIdentity();
+
             Self {
                 display,
                 window,
                 egl,
+                width: 0,
+                height: 0,
                 vertex,
                 fragment,
                 program,
@@ -208,7 +215,13 @@ pub fn compile_shader(shader_type: u32, source: &str) -> u32 {
 
 impl crate::Surface for X11EglSurface {
     #[inline]
-    fn surface_resize(&mut self, width: u32, height: u32) {}
+    fn surface_resize(&mut self, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
+        unsafe {
+            gl::Viewport(0,0,width as i32,height as i32);
+        }
+    }
 
     #[inline]
     fn begin(&mut self) {
