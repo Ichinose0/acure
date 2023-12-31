@@ -2,8 +2,9 @@ const FRAGMENT: &'static str = include_str!("shader/shader.frag");
 const VERTEX: &'static str = include_str!("shader/shader.vert");
 
 use std::{
+    ffi::{CStr, CString},
     os::raw::c_void,
-    ptr::{null, null_mut}, ffi::{CString, CStr},
+    ptr::{null, null_mut},
 };
 
 use egl::{Config, Context, Display, Instance, Static, Surface};
@@ -17,7 +18,7 @@ pub struct Egl {
     instance: Instance<Static>,
     display: Display,
     surface: Surface,
-    context: Context
+    context: Context,
 }
 
 impl Egl {
@@ -68,8 +69,6 @@ impl Egl {
             let context = instance
                 .create_context(display, configs[0], None, &ctx_attr)
                 .unwrap();
-
-            
 
             Self {
                 instance,
@@ -122,7 +121,7 @@ pub struct X11EglSurface {
     egl: Egl,
     vertex: u32,
     fragment: u32,
-    program: u32
+    program: u32,
 }
 
 impl X11EglSurface {
@@ -140,32 +139,27 @@ impl X11EglSurface {
 
             gl::load_with(|s| egl.get_proc_address(s));
 
-            let vertex = gl::CreateShader(gl::VERTEX_SHADER);
-            let fragment = gl::CreateShader(gl::FRAGMENT_SHADER);
+            let vertex = compile_shader(gl::VERTEX_SHADER, VERTEX);
+            let fragment = compile_shader(gl::FRAGMENT_SHADER, FRAGMENT);
 
-            gl::ShaderSource(vertex,1,&CString::new(VERTEX).unwrap().as_ptr(),null());
-            gl::CompileShader(vertex);
-
-            gl::ShaderSource(fragment,1,&CString::new(FRAGMENT).unwrap().as_ptr(),null());
-            gl::CompileShader(fragment);
+            let mut result = 0;
 
             let program = gl::CreateProgram();
 
-            gl::AttachShader(program,vertex);
-            gl::AttachShader(program,fragment);
+            gl::AttachShader(program, vertex);
+            gl::AttachShader(program, fragment);
             gl::LinkProgram(program);
 
-            let mut result = 0;
             gl::GetProgramiv(program, gl::LINK_STATUS, &mut result);
 
             if (result as u8) == gl::FALSE {
                 let mut length = 0;
-                gl::GetProgramiv(program,gl::INFO_LOG_LENGTH,&mut length);
+                gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut length);
                 let mut log = Vec::with_capacity(length as usize);
-                gl::GetProgramInfoLog(program,length,null_mut(),log.as_mut_ptr());
+                gl::GetProgramInfoLog(program, length, null_mut(), log.as_mut_ptr());
                 let log = CStr::from_ptr(log.as_ptr());
                 let log_str = log.to_str().unwrap();
-                panic!("{:#?}",log_str);
+                panic!("{:#?}", log_str);
             }
 
             gl::UseProgram(program);
@@ -176,9 +170,32 @@ impl X11EglSurface {
                 egl,
                 vertex,
                 fragment,
-                program
+                program,
             }
         }
+    }
+}
+
+pub fn compile_shader(shader_type: u32, source: &str) -> u32 {
+    let mut result = 0;
+
+    unsafe {
+        let shader = gl::CreateShader(shader_type);
+        gl::ShaderSource(shader, 1, &CString::new(source).unwrap().as_ptr(), null());
+        gl::CompileShader(shader);
+
+        gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut result);
+        if (result as u8) == gl::FALSE {
+            let mut length = 0;
+            gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut length);
+            let mut log = Vec::with_capacity(length as usize);
+            gl::GetShaderInfoLog(shader, length, null_mut(), log.as_mut_ptr());
+            let log = CStr::from_ptr(log.as_ptr());
+            let log_str = log.to_str().unwrap();
+            panic!("{:#?}", log_str);
+        }
+
+        shader
     }
 }
 
@@ -203,7 +220,7 @@ impl crate::Surface for X11EglSurface {
                     );
                 }
             }
-            gl::Clear(gl::COLOR_BUFFER_BIT|gl::DEPTH_BUFFER_BIT);
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             gl::ClearDepth(1.0);
         }
     }
@@ -214,40 +231,43 @@ impl crate::Surface for X11EglSurface {
         align: crate::AlignMode,
         layout: crate::LayoutMode,
     ) {
-        
         match command {
-            crate::Command::FillRectangle(x, y, width, height, radius, color) => {
-                unsafe {
-                    let position: Vec<f32> = vec![
-                        -0.5,0.5,
-                        -0.5,-0.5,
-                        0.5,-0.5,
-                        0.5,0.5
-                    ];
-                    let vert_color: Vec<f32>;
-                    match color {
-                        crate::Color::ARGB(a,r,g,b) => {
-                            let a = (*a as f32)/255.0;
-                            let r = (*r as f32)/255.0;
-                            let g = (*g as f32)/255.0;
-                            let b = (*b as f32)/255.0;
-                            vert_color = vec![
-                                r,g,b,a,
-                                r,g,b,a,
-                                r,g,b,a,
-                                r,g,b,a
-                            ];
-                        }
+            crate::Command::FillRectangle(x, y, width, height, radius, color) => unsafe {
+                let position: Vec<f32> = vec![-0.5, 0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5];
+                let vert_color: Vec<f32>;
+                match color {
+                    crate::Color::ARGB(a, r, g, b) => {
+                        let a = (*a as f32) / 255.0;
+                        let r = (*r as f32) / 255.0;
+                        let g = (*g as f32) / 255.0;
+                        let b = (*b as f32) / 255.0;
+                        vert_color = vec![r, g, b, a, r, g, b, a, r, g, b, a, r, g, b, a];
                     }
-                    let att_location = gl::GetAttribLocation(self.program,CString::new("position").unwrap().as_ptr());
-                    let color_location = gl::GetAttribLocation(self.program,CString::new("color").unwrap().as_ptr());
-                    gl::EnableVertexAttribArray(att_location as u32);
-                    gl::EnableVertexAttribArray(color_location as u32);
-                    gl::VertexAttribPointer(att_location as u32,2,gl::FLOAT,0,0,position.as_ptr() as *const c_void);
-                    gl::VertexAttribPointer(color_location as u32,4,gl::FLOAT,0,0,vert_color.as_ptr() as *const c_void);
-                    gl::DrawArrays(gl::TRIANGLE_FAN,0,4);
                 }
-            }
+                let att_location =
+                    gl::GetAttribLocation(self.program, CString::new("position").unwrap().as_ptr());
+                let color_location =
+                    gl::GetAttribLocation(self.program, CString::new("color").unwrap().as_ptr());
+                gl::EnableVertexAttribArray(att_location as u32);
+                gl::EnableVertexAttribArray(color_location as u32);
+                gl::VertexAttribPointer(
+                    att_location as u32,
+                    2,
+                    gl::FLOAT,
+                    0,
+                    0,
+                    position.as_ptr() as *const c_void,
+                );
+                gl::VertexAttribPointer(
+                    color_location as u32,
+                    4,
+                    gl::FLOAT,
+                    0,
+                    0,
+                    vert_color.as_ptr() as *const c_void,
+                );
+                gl::DrawArrays(gl::TRIANGLE_FAN, 0, 4);
+            },
 
             crate::Command::WriteString(x, y, width, height, color, text) => {}
         }
