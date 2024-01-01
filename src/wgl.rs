@@ -1,5 +1,5 @@
-const FRAGMENT: &'static str = include_str!("shader/shader.frag");
-const VERTEX: &'static str = include_str!("shader/shader.vert");
+const FRAGMENT: &'static str = include_str!("shader/shader_core.frag");
+const VERTEX: &'static str = include_str!("shader/shader_core.vert");
 
 use std::{
     ffi::{c_void, CString},
@@ -7,38 +7,45 @@ use std::{
     ptr::{null, null_mut},
 };
 
+use gl::types::{GLboolean, GLfloat, GLuint};
 use windows::{
     core::PCSTR,
     Win32::{
         Foundation::HWND,
-        Graphics::{Gdi::{GetDC, HDC}, OpenGL::*},
+        Graphics::{
+            Gdi::{GetDC, HDC},
+            OpenGL::*,
+        },
     },
 };
 
-use crate::gl::{compile_shader, create_program};
+use crate::gl::{compile_shader, create_program, Vao, Vbo};
 
 type wglCreateContextAttribsARB =
     fn(hDC: *mut c_void, hshareContext: *mut c_void, attribList: *const i32) -> *mut c_void;
+type wglSwapIntervalEXT = fn(i32);
 
-const WGL_CONTEXT_MAJOR_VERSION_ARB:i32 =         0x2091;
-const WGL_CONTEXT_MINOR_VERSION_ARB:i32 =         0x2092;
-const WGL_CONTEXT_LAYER_PLANE_ARB:i32   =         0x2093;
-const WGL_CONTEXT_FLAGS_ARB:i32         =         0x2094;
-const WGL_CONTEXT_PROFILE_MASK_ARB:i32  =         0x9126;
+const WGL_CONTEXT_MAJOR_VERSION_ARB: i32 = 0x2091;
+const WGL_CONTEXT_MINOR_VERSION_ARB: i32 = 0x2092;
+const WGL_CONTEXT_LAYER_PLANE_ARB: i32 = 0x2093;
+const WGL_CONTEXT_FLAGS_ARB: i32 = 0x2094;
+const WGL_CONTEXT_PROFILE_MASK_ARB: i32 = 0x9126;
 
-const WGL_CONTEXT_DEBUG_BIT_ARB:i32              = 0x0001;
-const WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB:i32 = 0x0002;
+const WGL_CONTEXT_DEBUG_BIT_ARB: i32 = 0x0001;
+const WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB: i32 = 0x0002;
 
+const WGL_CONTEXT_CORE_PROFILE_BIT_ARB: i32 = 0x00000001;
+const WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB: i32 = 0x00000002;
 
-const WGL_CONTEXT_CORE_PROFILE_BIT_ARB:i32          = 0x00000001;
-const WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB:i32 = 0x00000002;
+const ERROR_INVALID_VERSION_ARB: i32 = 0x2095;
+const ERROR_INVALID_PROFILE_ARB: i32 = 0x2096;
 
-const ERROR_INVALID_VERSION_ARB:i32       =       0x2095;
-const ERROR_INVALID_PROFILE_ARB:i32       =       0x2096;
+static VERTEX_DATA: [f32; 6] = [0.0, 0.5, 0.5, -0.5, -0.5, -0.5];
 
 pub struct Wgl {
     wglCreateContextAttribsARB: wglCreateContextAttribsARB,
-    hdc: HDC
+    wglSwapIntervalEXT: wglSwapIntervalEXT,
+    hdc: HDC,
 }
 
 impl Wgl {
@@ -97,15 +104,23 @@ impl Wgl {
 
         let wglCreateContextAttribsARB: wglCreateContextAttribsARB =
             unsafe { std::mem::transmute(func("wglCreateContextAttribsARB")) };
-        let new_ctx = HGLRC((wglCreateContextAttribsARB)(hdc.0 as *mut c_void, null_mut(), attribs.as_ptr()) as isize);
+        let new_ctx = HGLRC((wglCreateContextAttribsARB)(
+            hdc.0 as *mut c_void,
+            null_mut(),
+            attribs.as_ptr(),
+        ) as isize);
         unsafe {
             wglDeleteContext(ctx);
             wglMakeCurrent(hdc, new_ctx);
         }
 
+        let wglSwapIntervalEXT: wglSwapIntervalEXT =
+            unsafe { std::mem::transmute(func("wglSwapIntervalEXT")) };
+
         Self {
             wglCreateContextAttribsARB,
-            hdc
+            wglSwapIntervalEXT,
+            hdc,
         }
     }
 
@@ -113,7 +128,9 @@ impl Wgl {
     pub fn make_current(&self) {}
 
     #[inline]
-    pub fn swap_intervals(&self, interval: bool) {}
+    pub fn swap_intervals(&self, interval: bool) {
+        ((self.wglSwapIntervalEXT)(interval as i32));
+    }
 
     #[inline]
     pub fn swap_buffers(&self) {
@@ -125,7 +142,7 @@ impl Wgl {
     #[inline]
     pub fn get_proc_address(&self, procname: &str) -> *const c_void {
         unsafe {
-            wglGetProcAddress(PCSTR(format!("{}\0",procname).as_ptr())).unwrap() as *const c_void
+            wglGetProcAddress(PCSTR(format!("{}\0", procname).as_ptr())).unwrap() as *const c_void
         }
     }
 }
@@ -151,15 +168,14 @@ impl WglSurface {
                 wglGetProcAddress(PCSTR(format!("{}\0", s).as_ptr())).unwrap() as *const c_void
             });
 
-            gl::load_with(|s| {
-                wgl.get_proc_address(s)
-            });
+            gl::load_with(|s| wgl.get_proc_address(s));
+
+            wgl.swap_intervals(true);
 
             let vertex = compile_shader(gl::VERTEX_SHADER, VERTEX);
             let fragment = compile_shader(gl::FRAGMENT_SHADER, FRAGMENT);
 
             let program = create_program(&[vertex, fragment]);
-            gl::UseProgram(program);
 
             Self {
                 hwnd,
@@ -174,7 +190,11 @@ impl WglSurface {
 
 impl crate::Surface for WglSurface {
     #[inline]
-    fn surface_resize(&mut self, width: u32, height: u32) {}
+    fn surface_resize(&mut self, width: u32, height: u32) {
+        unsafe {
+            gl::Viewport(0, 0, width as i32, height as i32);
+        }
+    }
 
     #[inline]
     fn begin(&mut self) {}
@@ -206,7 +226,6 @@ impl crate::Surface for WglSurface {
     ) {
         match command {
             crate::Command::FillRectangle(x, y, width, height, radius, color) => unsafe {
-                let position: Vec<f32> = vec![-0.5, 0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5];
                 let vert_color: Vec<f32>;
                 match color {
                     crate::Color::ARGB(a, r, g, b) => {
@@ -214,31 +233,75 @@ impl crate::Surface for WglSurface {
                         let r = (*r as f32) / 255.0;
                         let g = (*g as f32) / 255.0;
                         let b = (*b as f32) / 255.0;
-                        vert_color = vec![r, g, b, a, r, g, b, a, r, g, b, a, r, g, b, a];
+                        vert_color = vec![r, g, b, a];
                     }
                 }
-                let att_location =
-                    gl::GetAttribLocation(self.program, CString::new("position").unwrap().as_ptr());
-                let color_location =
+
+                let vao = Vao::new(1);
+                let vbo = Vbo::gen(&[
+                    -0.5,
+                    0.5,
+                    vert_color[0],
+                    vert_color[1],
+                    vert_color[2],
+                    vert_color[3],
+                    -0.5,
+                    -0.5,
+                    vert_color[0],
+                    vert_color[1],
+                    vert_color[2],
+                    vert_color[3],
+                    0.5,
+                    -0.5,
+                    vert_color[0],
+                    vert_color[1],
+                    vert_color[2],
+                    vert_color[3],
+                    0.5,
+                    0.5,
+                    vert_color[0],
+                    vert_color[1],
+                    vert_color[2],
+                    vert_color[3],
+                ]);
+
+                gl::UseProgram(self.program);
+                let color_pos =
                     gl::GetAttribLocation(self.program, CString::new("color").unwrap().as_ptr());
-                gl::EnableVertexAttribArray(att_location as u32);
-                gl::EnableVertexAttribArray(color_location as u32);
+                gl::EnableVertexAttribArray(color_pos as u32);
                 gl::VertexAttribPointer(
-                    att_location as u32,
-                    2,
-                    gl::FLOAT,
-                    0,
-                    0,
-                    position.as_ptr() as *const c_void,
-                );
-                gl::VertexAttribPointer(
-                    color_location as u32,
+                    color_pos as u32,
                     4,
                     gl::FLOAT,
-                    0,
+                    gl::FALSE as GLboolean,
                     0,
                     vert_color.as_ptr() as *const c_void,
                 );
+                gl::BindFragDataLocation(
+                    self.program,
+                    0,
+                    CString::new("out_color").unwrap().as_ptr(),
+                );
+
+                gl::VertexAttribPointer(
+                    0,
+                    2,
+                    gl::FLOAT,
+                    gl::FALSE,
+                    (6 * std::mem::size_of::<GLfloat>()) as i32,
+                    null(),
+                );
+                gl::EnableVertexAttribArray(0);
+                gl::VertexAttribPointer(
+                    1,
+                    4,
+                    gl::FLOAT,
+                    gl::FALSE,
+                    (6 * std::mem::size_of::<GLfloat>()) as i32,
+                    (3 * std::mem::size_of::<GLfloat>()) as *const c_void,
+                );
+                gl::EnableVertexAttribArray(1);
+
                 gl::DrawArrays(gl::TRIANGLE_FAN, 0, 4);
             },
 
