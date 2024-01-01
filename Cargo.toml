@@ -4,7 +4,7 @@ version = "0.0.1"
 edition = "2021"
 
 [features]
-default = ["x11_egl"]
+default = ["wgl"]
 d2d1 = ["windows/Foundation_Numerics",
     "windows/Win32_Foundation",
     "windows/Win32_System_Com",
@@ -21,6 +21,16 @@ d2d1 = ["windows/Foundation_Numerics",
     "windows/Win32_UI_WindowsAndMessaging",]
 x11 = ["dep:x11","x11/xlib","x11/xft"]
 x11_egl = ["x11","khronos-egl","gl"]
+wgl = [
+    "windows/Win32_Foundation",
+    "windows/Win32_System_LibraryLoader",
+    "windows/Win32_UI_WindowsAndMessaging",
+    "windows/Win32_Graphics_OpenGL",
+    "windows/Win32_Graphics_Gdi",
+    "windows/Win32_System_LibraryLoader",
+    "gl"
+]
+gl = ["dep:gl"]
 
 [dependencies]
 raw-window-handle = "0.6.0"

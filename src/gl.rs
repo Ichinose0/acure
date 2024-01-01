@@ -1,4 +1,9 @@
-use std::{ffi::{CStr, CString}, ptr::{null_mut, null}};
+use std::{
+    ffi::{c_void, CStr, CString},
+    ptr::{null, null_mut},
+};
+
+use gl::types::{GLfloat, GLsizeiptr};
 
 #[inline]
 pub fn compile_shader(shader_type: u32, source: &str) -> u32 {
@@ -31,7 +36,7 @@ pub fn create_program(shaders: &[u32]) -> u32 {
         for i in shaders {
             gl::AttachShader(program, *i);
         }
-        
+
         gl::LinkProgram(program);
 
         let mut result = 0;
@@ -49,5 +54,58 @@ pub fn create_program(shaders: &[u32]) -> u32 {
         }
 
         program
+    }
+}
+
+pub struct Vao {
+    vao: u32,
+}
+
+impl Vao {
+    pub fn new(size: usize) -> Self {
+        let mut vao = 0;
+        unsafe {
+            gl::GenVertexArrays(size as i32, &mut vao);
+            gl::BindVertexArray(vao);
+        }
+
+        Self { vao }
+    }
+}
+
+impl Drop for Vao {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteVertexArrays(1, &self.vao);
+        }
+    }
+}
+
+pub struct Vbo {
+    vbo: u32,
+}
+
+impl Vbo {
+    pub fn gen(data: &[f32]) -> Self {
+        let mut vbo = 0;
+        unsafe {
+            gl::GenBuffers(1, &mut vbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (data.len() * std::mem::size_of::<GLfloat>()) as GLsizeiptr,
+                std::mem::transmute::<&f32, *const c_void>(&data[0]) as *const c_void,
+                gl::STATIC_DRAW,
+            );
+        };
+        Self { vbo }
+    }
+}
+
+impl Drop for Vbo {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteBuffers(1, &self.vbo);
+        }
     }
 }
