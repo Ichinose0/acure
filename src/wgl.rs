@@ -157,6 +157,9 @@ pub struct WglSurface {
     vertex: u32,
     fragment: u32,
     program: u32,
+    projection: Vec<f32>,
+    width: f32,
+    height: f32,
 }
 
 impl WglSurface {
@@ -177,12 +180,41 @@ impl WglSurface {
 
             let program = create_program(&[vertex, fragment]);
 
+            let left = 0.0;
+            let right = 1600.0;
+            let bottom = 0.0;
+            let top = 900.0;
+            let near_val = -1.0;
+            let far_val = 1.0;
+
+            let projection: Vec<f32> = vec![
+                2.0 / (right - left),
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                2.0 / (top - bottom),
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                -2.0 / (far_val - near_val),
+                0.0,
+                -(right + left) / (right - left),
+                -(top + bottom) / (top - bottom),
+                -(far_val + near_val) / (far_val - near_val),
+                1.0,
+            ];
+
             Self {
                 hwnd,
                 wgl,
                 vertex,
                 fragment,
                 program,
+                projection,
+                width: 0.0,
+                height: 0.0,
             }
         }
     }
@@ -191,8 +223,14 @@ impl WglSurface {
 impl crate::Surface for WglSurface {
     #[inline]
     fn surface_resize(&mut self, width: u32, height: u32) {
+        self.width = width as f32;
+        self.height = height as f32;
         unsafe {
             gl::Viewport(0, 0, width as i32, height as i32);
+            self.projection[0] = 2.0 / self.width;
+            self.projection[5] = 2.0 / self.height;
+            self.projection[12] = -(self.width + 0.0) / (self.width - 0.0);
+            self.projection[13] = -(self.height + 0.0) / (self.height - 0.0);
         }
     }
 
@@ -237,28 +275,33 @@ impl crate::Surface for WglSurface {
                     }
                 }
 
+                let x = *x as f32;
+                let y = *y as f32;
+                let width = *width as f32;
+                let height = *height as f32;
+
                 let vao = Vao::new(1);
                 let vbo = Vbo::gen(&[
-                    -0.5,
-                    0.5,
+                    x,
+                    self.height-y,
                     vert_color[0],
                     vert_color[1],
                     vert_color[2],
                     vert_color[3],
-                    -0.5,
-                    -0.5,
+                    x,
+                    self.height-y-height,
                     vert_color[0],
                     vert_color[1],
                     vert_color[2],
                     vert_color[3],
-                    0.5,
-                    -0.5,
+                    x+width,
+                    self.height-y-height,
                     vert_color[0],
                     vert_color[1],
                     vert_color[2],
                     vert_color[3],
-                    0.5,
-                    0.5,
+                    x+width,
+                    self.height-y,
                     vert_color[0],
                     vert_color[1],
                     vert_color[2],
@@ -266,6 +309,11 @@ impl crate::Surface for WglSurface {
                 ]);
 
                 gl::UseProgram(self.program);
+                let matrix = gl::GetUniformLocation(
+                    self.program,
+                    CString::new("projectionMatrix").unwrap().as_ptr(),
+                );
+                gl::UniformMatrix4fv(matrix, 1, gl::FALSE as GLboolean, self.projection.as_ptr());
                 let color_pos =
                     gl::GetAttribLocation(self.program, CString::new("color").unwrap().as_ptr());
                 gl::EnableVertexAttribArray(color_pos as u32);
