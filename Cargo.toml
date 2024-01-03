@@ -4,7 +4,7 @@ version = "0.0.1"
 edition = "2021"
 
 [features]
-default = ["wgl"]
+default = ["wgl","d2d1"]
 d2d1 = ["windows/Foundation_Numerics",
     "windows/Win32_Foundation",
     "windows/Win32_System_Com",
@@ -34,6 +34,8 @@ gl = ["dep:gl"]
 
 [dependencies]
 raw-window-handle = "0.6.0"
+thiserror = "1.0.56"
+anyhow = { version = "1.0.70", features = ["backtrace", "std"] }
 log = "0.4"
 
 gl = { version = "0.14.0", optional = true }

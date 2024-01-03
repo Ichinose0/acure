@@ -72,7 +72,7 @@ fn main() -> Result<(), impl std::error::Error> {
         #[cfg(target_os = "windows")]
         raw_window_handle::RawWindowHandle::Win32(handle) => {
             use acure::wgl::WglSurface;
-            surface = Surface::new(WglSurface::new(isize::from(handle.hwnd)));
+            surface = Surface::new(WglSurface::new(isize::from(handle.hwnd)).unwrap());
         }
         raw_window_handle::RawWindowHandle::WinRt(_) => {
             panic!("This sample is available only Windows")

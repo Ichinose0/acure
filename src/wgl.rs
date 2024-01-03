@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 const FRAGMENT: &'static str = include_str!("shader/shader_core.frag");
 const VERTEX: &'static str = include_str!("shader/shader_core.vert");
 
@@ -19,7 +21,10 @@ use windows::{
     },
 };
 
-use crate::gl::{compile_shader, create_program, Vao, Vbo};
+use crate::{
+    gl::{compile_shader, create_program, Vao, Vbo},
+    AcureError, AeResult, Backend,
+};
 
 type wglCreateContextAttribsARB =
     fn(hDC: *mut c_void, hshareContext: *mut c_void, attribList: *const i32) -> *mut c_void;
@@ -46,11 +51,12 @@ pub struct Wgl {
     wglCreateContextAttribsARB: wglCreateContextAttribsARB,
     wglSwapIntervalEXT: wglSwapIntervalEXT,
     hdc: HDC,
+    ctx: HGLRC,
 }
 
 impl Wgl {
     #[inline]
-    pub fn load_with<F>(hwnd: HWND, func: F) -> Self
+    pub fn load_with<F>(hwnd: HWND, func: F) -> AeResult<Self>
     where
         F: Fn(&str) -> *const c_void,
     {
@@ -86,9 +92,15 @@ impl Wgl {
 
         let pixel_format = unsafe { ChoosePixelFormat(hdc, &pfd) };
         let ctx = unsafe {
-            SetPixelFormat(hdc, pixel_format, &pfd);
+            match SetPixelFormat(hdc, pixel_format, &pfd) {
+                Ok(_) => {}
+                Err(e) => return Err(AcureError::BackendError(Backend::WGL, e.into())),
+            }
             let ctx = wglCreateContext(hdc).unwrap();
-            wglMakeCurrent(hdc, ctx);
+            match wglMakeCurrent(hdc, ctx) {
+                Ok(_) => {}
+                Err(e) => return Err(AcureError::BackendError(Backend::WGL, e.into())),
+            }
             ctx
         };
 
@@ -102,33 +114,54 @@ impl Wgl {
             0,
         ];
 
+        let wglCreateContextAttribsARB = func("wglCreateContextAttribsARB");
+        if wglCreateContextAttribsARB.is_null() {
+            return Err(crate::AcureError::NullPtrError(
+                "Could not load wglCreateContextAttribsARB".to_owned(),
+            ));
+        }
+
         let wglCreateContextAttribsARB: wglCreateContextAttribsARB =
-            unsafe { std::mem::transmute(func("wglCreateContextAttribsARB")) };
+            unsafe { std::mem::transmute(wglCreateContextAttribsARB) };
         let new_ctx = HGLRC((wglCreateContextAttribsARB)(
             hdc.0 as *mut c_void,
             null_mut(),
             attribs.as_ptr(),
         ) as isize);
         unsafe {
-            wglDeleteContext(ctx);
-            wglMakeCurrent(hdc, new_ctx);
+            match wglDeleteContext(ctx) {
+                Ok(_) => {}
+                Err(e) => return Err(AcureError::BackendError(Backend::WGL, e.into())),
+            };
+            match wglMakeCurrent(hdc, new_ctx) {
+                Ok(_) => {}
+                Err(e) => return Err(AcureError::BackendError(Backend::WGL, e.into())),
+            };
+        }
+
+        let wglSwapIntervalEXT = func("wglSwapIntervalEXT");
+        if wglSwapIntervalEXT.is_null() {
+            return Err(crate::AcureError::NullPtrError(
+                "Could not load wglSwapIntervalEXT".to_owned(),
+            ));
         }
 
         let wglSwapIntervalEXT: wglSwapIntervalEXT =
-            unsafe { std::mem::transmute(func("wglSwapIntervalEXT")) };
+            unsafe { std::mem::transmute(wglSwapIntervalEXT) };
 
-        Self {
+        Ok(Self {
             wglCreateContextAttribsARB,
             wglSwapIntervalEXT,
             hdc,
-        }
+            ctx: new_ctx,
+        })
     }
 
     #[inline]
-    pub fn make_current(&self) {}
+    pub unsafe fn make_current(&self) {}
 
     #[inline]
-    pub fn swap_intervals(&self, interval: bool) {
+    pub unsafe fn swap_intervals(&self, interval: bool) {
         ((self.wglSwapIntervalEXT)(interval as i32));
     }
 
@@ -148,7 +181,11 @@ impl Wgl {
 }
 
 impl Drop for Wgl {
-    fn drop(&mut self) {}
+    fn drop(&mut self) {
+        unsafe {
+            wglDeleteContext(self.ctx).unwrap();
+        }
+    }
 }
 
 pub struct WglSurface {
@@ -164,13 +201,18 @@ pub struct WglSurface {
 
 impl WglSurface {
     #[inline]
-    pub fn new(window: isize) -> Self {
+    pub fn new(window: isize) -> AeResult<Self> {
         let hwnd = HWND(window);
+        let wgl = match Wgl::load_with(hwnd, |s| unsafe {
+            match wglGetProcAddress(PCSTR(format!("{}\0", s).as_ptr())) {
+                Some(ptr) => ptr as *const c_void,
+                None => null(),
+            }
+        }) {
+            Ok(w) => w,
+            Err(e) => return Err(e),
+        };
         unsafe {
-            let wgl = Wgl::load_with(hwnd, |s| {
-                wglGetProcAddress(PCSTR(format!("{}\0", s).as_ptr())).unwrap() as *const c_void
-            });
-
             gl::load_with(|s| wgl.get_proc_address(s));
 
             wgl.swap_intervals(true);
@@ -206,7 +248,7 @@ impl WglSurface {
                 1.0,
             ];
 
-            Self {
+            Ok(Self {
                 hwnd,
                 wgl,
                 vertex,
@@ -215,7 +257,7 @@ impl WglSurface {
                 projection,
                 width: 0.0,
                 height: 0.0,
-            }
+            })
         }
     }
 }
@@ -283,25 +325,25 @@ impl crate::Surface for WglSurface {
                 let vao = Vao::new(1);
                 let vbo = Vbo::gen(&[
                     x,
-                    self.height-y,
+                    self.height - y,
                     vert_color[0],
                     vert_color[1],
                     vert_color[2],
                     vert_color[3],
                     x,
-                    self.height-y-height,
+                    self.height - y - height,
                     vert_color[0],
                     vert_color[1],
                     vert_color[2],
                     vert_color[3],
-                    x+width,
-                    self.height-y-height,
+                    x + width,
+                    self.height - y - height,
                     vert_color[0],
                     vert_color[1],
                     vert_color[2],
                     vert_color[3],
-                    x+width,
-                    self.height-y,
+                    x + width,
+                    self.height - y,
                     vert_color[0],
                     vert_color[1],
                     vert_color[2],

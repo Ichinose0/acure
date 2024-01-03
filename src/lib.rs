@@ -20,15 +20,35 @@ pub mod wgl;
 #[cfg(feature = "gl")]
 pub(crate) mod gl;
 
-use std::sync::Mutex;
+use std::{fmt::Display, sync::Mutex};
 
 use surface::Surface;
+use thiserror::Error;
 
-pub type AeResult<T> = Result<T, AcureResult>;
+pub type AeResult<T> = Result<T, AcureError>;
 
-#[derive(Clone, Copy, Debug)]
-pub enum AcureResult {
+#[derive(Debug)]
+pub enum Backend {
+    D2D1,
+    WGL,
+    X11EGL,
+}
+
+impl Display for Backend {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Debug, Error)]
+#[error(transparent)]
+pub enum AcureError {
+    #[error("This operation is not authorized.")]
     UnauthorizedOperation,
+    #[error("Null pointer detected.\n'{0}'")]
+    NullPtrError(String),
+    #[error("Backend: '{0}'\n'{1}'")]
+    BackendError(Backend, anyhow::Error),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -141,7 +161,7 @@ impl Acure {
             return Ok(());
         }
 
-        return Err(AcureResult::UnauthorizedOperation);
+        return Err(AcureError::UnauthorizedOperation);
     }
 
     #[inline]

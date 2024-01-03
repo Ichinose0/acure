@@ -9,7 +9,7 @@ use windows::{
 };
 
 use crate::surface::Surface;
-use crate::{AlignMode, Color, Command, LayoutMode};
+use crate::{AcureError, AeResult, AlignMode, Backend, Color, Command, LayoutMode};
 
 impl Surface for D2D1Surface {
     #[inline]
@@ -222,8 +222,11 @@ impl Angles {
 
 impl D2D1Surface {
     #[inline]
-    pub fn new(hwnd: isize) -> Self {
-        let factory = create_factory().unwrap();
+    pub unsafe fn new(hwnd: isize) -> AeResult<Self> {
+        let factory = match create_factory() {
+            Ok(f) => f,
+            Err(e) => return Err(AcureError::BackendError(Backend::D2D1, e.into())),
+        };
         let dxfactory: IDXGIFactory2 = unsafe { CreateDXGIFactory1().unwrap() };
         let dwfactory: IDWriteFactory =
             unsafe { DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED).unwrap() };
@@ -249,7 +252,7 @@ impl D2D1Surface {
             variable
         };
 
-        Self {
+        Ok(Self {
             handle: HWND(hwnd),
             factory,
             dxfactory,
@@ -267,7 +270,7 @@ impl D2D1Surface {
             occlusion: 0,
             frequency,
             angles: Angles::now(),
-        }
+        })
     }
 
     #[inline]
