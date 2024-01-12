@@ -1,6 +1,6 @@
 use crate::{AlignMode, Color, Command, LayoutMode};
 
-pub trait Surface: Sized {
+pub trait Surface {
     fn surface_resize(&mut self, width: u32, height: u32);
 
     fn begin(&mut self);
